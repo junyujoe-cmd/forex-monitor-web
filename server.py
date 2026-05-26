@@ -143,17 +143,16 @@ async def get_chart(
 ):
     """返回图表数据，支持指定日期"""
     date_str = date or datetime.now().strftime("%Y-%m-%d")
-    rows = db.get_chart_data(pair, bank, limit=480, date_str=date_str)
+    rows = db.get_chart_data(pair, bank, date_str=date_str)
     if not rows:
-        return {"times": [], "bids": [], "asks": [], "mids": [], "costs": []}
+        return {"times": [], "bids": [], "asks": [], "mids": [], "costs": [], "sources": []}
 
     times = []
     bids = []
     asks = []
     mids = []
     costs = []
-
-    sp = BANK_SPREADS.get(bank, {"bid_offset": 0, "ask_offset": 0})
+    sources = []
 
     for r in rows:
         ts = r[0][11:16]  # "HH:MM"
@@ -161,12 +160,14 @@ async def get_chart(
         bid = float(r[2]) if r[2] is not None else None
         ask = float(r[3]) if r[3] is not None else None
         cost = round((bid + ask) / 2, 4) if bid is not None and ask is not None else None
+        src = r[4] if len(r) > 4 else "实时"
 
         times.append(ts)
         mids.append(mid)
         bids.append(bid)
         asks.append(ask)
         costs.append(cost)
+        sources.append(src)
 
     return {
         "times": times,
@@ -174,6 +175,7 @@ async def get_chart(
         "asks": asks,
         "mids": mids,
         "costs": costs,
+        "sources": sources,
     }
 
 

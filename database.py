@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from config import DB_PATH
 
 
@@ -115,23 +115,26 @@ class Database:
         conn.close()
         return row is not None
 
-    def get_chart_data(self, pair, bank, limit=480, date_str=None):
+    def get_chart_data(self, pair, bank, limit=1440, date_str=None):
         """获取图表数据，默认查今天，可指定日期"""
         if date_str is None:
             date_str = datetime.now().strftime("%Y-%m-%d")
         conn = self._get_conn()
-        # 先尝试查当天实时数据（时间范围 09:00-16:30）
+        # 统一时间轴：当天 09:30 → 次日 09:29
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        next_day = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+        time_start = f"{date_str}T09:30:00"
+        time_end = f"{next_day}T09:29:59"
         rows = conn.execute("""
-            SELECT m.timestamp, m.mid, b.bid, b.ask
+            SELECT m.timestamp, m.mid, b.bid, b.ask, COALESCE(m.source, '实时')
             FROM market_quotes m
             LEFT JOIN bank_quotes b ON m.fetch_cycle = b.fetch_cycle AND b.pair = m.pair AND b.bank = ?
             WHERE m.pair = ? AND m.timestamp >= ? AND m.timestamp <= ?
-            ORDER BY m.id ASC LIMIT ?
-        """, (bank, pair, f"{date_str}T09:00:00", f"{date_str}T16:30:00", limit)).fetchall()
-        # 如果当天没有实时数据，尝试查中行历史数据
+            ORDER BY m.timestamp ASC LIMIT ?
+        """, (bank, pair, time_start, time_end, limit)).fetchall()
         if not rows:
             rows = conn.execute("""
-                SELECT timestamp, bid, ask FROM bank_quotes
+                SELECT timestamp, bid, ask, '日线' FROM bank_quotes
                 WHERE bank = ? AND pair = ? AND fetch_cycle = ?
                 ORDER BY id ASC LIMIT 1
             """, (bank, pair, f"boc_hist_{date_str}")).fetchall()
@@ -139,7 +142,7 @@ class Database:
             if rows:
                 r = rows[0]
                 mid = round((r[1] + r[2]) / 2, 4)
-                return [(r[0], mid, r[1], r[2])]
+                return [(r[0], mid, r[1], r[2], r[3])]
             return []
         conn.close()
         return rows
