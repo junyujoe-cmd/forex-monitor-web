@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>实时外汇监控系统</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#0a1628;color:#ccc;min-height:100vh}
+
+/* ── Header ── */
+.header{background:#0f3460;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
+.header h1{font-size:16px;color:#fff;font-weight:600}
+.header .update-time{font-size:12px;color:#888}
+
+/* ── Quote Cards ── */
+.quotes{padding:6px 8px;display:flex;flex-direction:column;gap:4px;background:#0a1628}
+.source-row{background:#0f3460;border-radius:6px;padding:6px 10px;display:grid;grid-template-columns:56px 1fr;align-items:center;gap:8px}
+.source-name{font-size:12px;font-weight:700;color:#aaa;text-align:center;white-space:nowrap}
+.pairs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.pair-card{text-align:center;padding:4px 2px}
+.pair-card .pair-name{font-size:10px;color:#888;margin-bottom:2px}
+.pair-card .buy-sell{display:flex;justify-content:center;gap:8px;font-size:14px;font-weight:700}
+.pair-card .buy{color:#4ade80}
+.pair-card .sell{color:#ef4444}
+.pair-card .costs{font-size:10px;color:#666;margin-top:2px}
+
+/* ── Tab Bar ── */
+.tab-bar{display:flex;background:#0f3460;margin:6px 8px 0;border-radius:6px 6px 0 0;overflow:hidden}
+.tab-btn{flex:1;padding:10px;text-align:center;font-size:14px;cursor:pointer;border:none;background:transparent;color:#888;transition:all .2s}
+.tab-btn.active{background:#1a1a2e;color:#fff;font-weight:600}
+.tab-btn:hover{color:#ddd}
+
+/* ── Tab Content ── */
+.tab-content{background:#1a1a2e;margin:0 8px 8px;border-radius:0 0 6px 6px;padding:14px;min-height:300px}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* ── Entry Form ── */
+.form-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.form-row label{font-size:13px;color:#aaa;white-space:nowrap}
+.form-row select,.form-row input{background:#0a1628;color:#ccc;border:1px solid #333;border-radius:4px;padding:7px 10px;font-size:14px;outline:none}
+.form-row select:focus,.form-row input:focus{border-color:#4ade80}
+.form-row input{width:120px}
+.btn{background:#22c55e;color:#fff;border:none;border-radius:4px;padding:8px 20px;font-size:14px;cursor:pointer;font-weight:600}
+.btn:hover{background:#16a34a}
+.btn-sm{font-size:12px;padding:5px 12px}
+
+.result-box{background:#0a1628;border-radius:6px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.8;white-space:pre-wrap}
+.recent{font-size:12px;color:#888;line-height:1.8}
+.recent-title{color:#aaa;margin-bottom:4px}
+
+/* ── Chart ── */
+.chart-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.chart-controls label{font-size:13px;color:#aaa}
+.chart-controls select{background:#0a1628;color:#ccc;border:1px solid #333;border-radius:4px;padding:6px 10px;font-size:13px;outline:none}
+#chart{width:100%;height:400px}
+@media(max-width:600px){#chart{height:300px}}
+
+/* ── Loading ── */
+.loading{text-align:center;padding:40px;color:#666;font-size:14px}
+
+/* ── Responsive ── */
+@media(max-width:640px){
+  .pairs{grid-template-columns:repeat(4,1fr);gap:4px}
+  .pair-card .buy-sell{font-size:13px;gap:4px}
+  .pair-card .pair-name{font-size:9px}
+  .form-row{gap:6px}
+  .form-row select,.form-row input{font-size:13px;padding:6px 8px}
+  .form-row input{width:100px}
+  .source-row{grid-template-columns:44px 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>🔄 实时外汇监控系统</h1>
+  <span class="update-time" id="updateTime">加载中...</span>
+</div>
+
+<!-- Quotes -->
+<div class="quotes" id="quotesContainer">
+  <div class="loading">加载报价中...</div>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="entry">📝 录入报价</button>
+  <button class="tab-btn" data-tab="chart">📊 历史图表</button>
+</div>
+
+<!-- Tab Content -->
+<div class="tab-content">
+
+  <!-- Entry Tab -->
+  <div class="tab-pane active" id="tab-entry">
+    <div class="form-row">
+      <label>货币对</label>
+      <select id="entryPair">
+        <option>USDCNY</option><option>EURCNY</option><option>HKDCNY</option><option>JPYCNY</option>
+      </select>
+      <label>银行</label>
+      <select id="entryBank">
+        <option>中国银行</option><option>招商银行</option>
+      </select>
+      <label>方向</label>
+      <select id="entryDir">
+        <option>买入价</option><option>卖出价</option>
+      </select>
+      <label>报价</label>
+      <input type="number" id="entryQuote" step="0.0001" placeholder="7.2400">
+      <button class="btn" onclick="submitEntry()">录入</button>
+    </div>
+    <div class="result-box" id="entryResult">录入后显示计算结果</div>
+    <div class="recent">
+      <div class="recent-title">📋 最近录入：</div>
+      <div id="entryRecent">暂无录入记录</div>
+    </div>
+  </div>
+
+  <!-- Chart Tab -->
+  <div class="tab-pane" id="tab-chart">
+    <div class="chart-controls">
+      <label>货币对</label>
+      <select id="chartPair" onchange="loadChart()">
+        <option>USDCNY</option><option>EURCNY</option><option>HKDCNY</option><option>JPYCNY</option>
+      </select>
+      <label>银行</label>
+      <select id="chartBank" onchange="loadChart()">
+        <option>中国银行</option><option>招商银行</option>
+      </select>
+      <label>日期</label>
+      <input type="date" id="chartDate">
+    </div>
+    <div id="chart"></div>
+  </div>
+
+</div>
+
+<script>
+// ── 全局状态 ──
+let chartInstance = null;
+
+// ── Tab 切换 ──
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'chart') setTimeout(() => { if (chartInstance) chartInstance.resize(); else loadChart(); }, 50);
+  });
+});
+
+// ── 报价栏渲染 ──
+const BANK_SPREADS = {"中国银行":{"bid_offset":-0.002,"ask_offset":0.002},"招商银行":{"bid_offset":-0.0015,"ask_offset":0.0015}};
+const PAIRS = ["USDCNY","EURCNY","HKDCNY","JPYCNY"];
+const BANK_NAMES = ["CFETS","中国银行","招商银行"];
+
+function renderQuotes(cfets, banks, timestamp) {
+  const el = document.getElementById('quotesContainer');
+  document.getElementById('updateTime').textContent = '最后更新: ' + (timestamp || '--');
+
+  let html = '';
+  for (const source of BANK_NAMES) {
+    html += '<div class="source-row"><div class="source-name">' + source + '</div><div class="pairs">';
+    for (const pair of PAIRS) {
+      let bid, ask, mid, bankCost;
+      if (source === 'CFETS') {
+        const d = cfets[pair] || {};
+        bid = d.bid; ask = d.ask; mid = d.mid;
+        bankCost = mid;
+      } else {
+        const bq = banks[source] && banks[source][pair];
+        const md = cfets[pair] ? cfets[pair].mid : null;
+        if (bq) {
+          bid = bq.bid; ask = bq.ask; mid = bq.mid || md;
+        } else if (md) {
+          const sp = BANK_SPREADS[source] || {bid_offset:0,ask_offset:0};
+          bid = +(md + sp.bid_offset).toFixed(4);
+          ask = +(md + sp.ask_offset).toFixed(4);
+          mid = md;
+        }
+        bankCost = (bid != null && ask != null) ? +((bid + ask) / 2).toFixed(4) : null;
+      }
+      const b = bid != null ? bid.toFixed(4) : '--';
+      const a = ask != null ? ask.toFixed(4) : '--';
+      const mc = mid != null ? mid.toFixed(4) : '--';
+      const bc = bankCost != null ? bankCost.toFixed(4) : '--';
+      html += '<div class="pair-card"><div class="pair-name">' + pair + '</div>'
+        + '<div class="buy-sell"><span class="buy">' + b + '</span><span class="sell">' + a + '</span></div>'
+        + '<div class="costs">市场' + mc + ' 银行' + bc + '</div></div>';
+    }
+    html += '</div></div>';
+  }
+  el.innerHTML = html;
+}
+
+// ── 获取报价 ──
+async function fetchQuotes() {
+  try {
+    const res = await fetch('/api/quotes');
+    const data = await res.json();
+    renderQuotes(data.cfets || {}, data.banks || {}, data.timestamp);
+  } catch(e) {
+    console.error('fetchQuotes error:', e);
+  }
+}
+
+// ── 图表 ──
+const LINE_STYLE = [
+  {name:'银行卖价', color:'#ef4444', width:1.5},
+  {name:'银行成本', color:'#f59e0b', width:1.5, type:'dashed'},
+  {name:'市场成本', color:'#9ca3af', width:1.5},
+  {name:'银行买价', color:'#22c55e', width:1.5},
+];
+
+async function loadChart() {
+  const pair = document.getElementById('chartPair').value;
+  const bank = document.getElementById('chartBank').value;
+  const dateInput = document.getElementById('chartDate').value;
+  let url = '/api/chart?pair=' + pair + '&bank=' + encodeURIComponent(bank);
+  if (dateInput) {
+    url += '&date=' + dateInput;
+  }
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    renderChart(data);
+  } catch(e) {
+    console.error('loadChart error:', e);
+  }
+}
+
+function renderChart(data) {
+  const dom = document.getElementById('chart');
+  if (!data.times || data.times.length === 0) {
+    dom.innerHTML = '<div class="loading">暂无今日数据</div>';
+    if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
+    return;
+  }
+
+  if (chartInstance) chartInstance.dispose();
+  chartInstance = echarts.init(dom);
+
+  const series = [
+    {name:'银行卖价', data:data.asks, color:'#ef4444'},
+    {name:'银行成本', data:data.costs, color:'#f59e0b'},
+    {name:'市场成本', data:data.mids, color:'#9ca3af'},
+    {name:'银行买价', data:data.bids, color:'#22c55e'},
+  ].map((s, i) => ({
+    name: s.name,
+    type: 'line',
+    data: s.data,
+    connectNulls: true,
+    smooth: false,
+    symbol: 'circle',
+    symbolSize: 2,
+    lineStyle: { width: LINE_STYLE[i].width, type: LINE_STYLE[i].type || 'solid' },
+    itemStyle: { color: s.color },
+  }));
+
+  chartInstance.setOption({
+    backgroundColor: '#1a1a2e',
+    grid: { left: 50, right: 16, top: 30, bottom: 28 },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(26,26,46,0.95)',
+      borderColor: '#444',
+      textStyle: { color: '#ccc', fontSize: 12 },
+      formatter: function(params) {
+        const time = params[0].axisValue;
+        let html = '<div>' + time + '</div>';
+        const colors = ['#ef4444','#f59e0b','#9ca3af','#22c55e'];
+        const names = ['银行卖价','银行成本','市场成本','银行买价'];
+        for (let i = 0; i < params.length; i++) {
+          if (params[i].value != null) {
+            html += '<div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + colors[i] + ';margin-right:6px;"></span>'
+              + names[i] + ' ' + params[i].value.toFixed(4) + '</div>';
+          }
+        }
+        return html;
+      }
+    },
+    legend: {
+      data: ['银行卖价','银行成本','市场成本','银行买价'],
+      textStyle: { color: '#aaa', fontSize: 10 },
+      top: 2,
+    },
+    xAxis: {
+      type: 'category',
+      data: data.times,
+      axisLine: { lineStyle: { color: '#333' } },
+      axisLabel: { color: '#888', fontSize: 10 },
+      splitLine: { show: true, lineStyle: { color: '#2a2a3e', width: 0.5 } },
+    },
+    yAxis: {
+      type: 'value',
+      scale: true,
+      axisLine: { lineStyle: { color: '#333' } },
+      axisLabel: { color: '#888', fontSize: 10, formatter: function(v) { return v.toFixed(4); } },
+      splitLine: { show: true, lineStyle: { color: '#2a2a3e', width: 0.5 } },
+    },
+    series: series,
+    dataZoom: [
+      { type: 'inside', start: 0, end: 100 },
+    ],
+  });
+
+  chartInstance.on('click', function() {});
+  window.addEventListener('resize', () => { if (chartInstance) chartInstance.resize(); });
+}
+
+// ── 录入报价 ──
+async function submitEntry() {
+  const pair = document.getElementById('entryPair').value;
+  const bank = document.getElementById('entryBank').value;
+  const dir = document.getElementById('entryDir').value;
+  const quote = parseFloat(document.getElementById('entryQuote').value);
+  if (isNaN(quote)) { document.getElementById('entryResult').textContent = '请输入有效的报价数字'; return; }
+
+  try {
+    const url = '/api/entry?pair=' + pair + '&bank=' + encodeURIComponent(bank) + '&direction=' + encodeURIComponent(dir) + '&quote=' + quote;
+    const res = await fetch(url, { method: 'POST' });
+    const data = await res.json();
+    if (!data.ok) {
+      document.getElementById('entryResult').textContent = data.error;
+      return;
+    }
+    const market = data.market_cost.toFixed(4);
+    const bankC = data.bank_cost.toFixed(4);
+    const bankPrice = dir === '买入价' ? data.bank_bid.toFixed(4) : data.bank_ask.toFixed(4);
+    const priceLabel = bank + (dir === '买入价' ? '买入价' : '卖出价');
+    document.getElementById('entryResult').innerHTML =
+      '▎对比市场中间价<br>  市场成本 ' + market + '，你的报价 ' + quote.toFixed(4) + '<br>  银行赚取 <b style="color:#22c55e">' + data.bp_vs_market + 'bp</b><br><br>'
+      + '▎对比银行自身成本<br>  银行成本 ' + bankC + '，你的报价 ' + quote.toFixed(4) + '<br>  银行赚取 <b style="color:#f59e0b">' + data.bp_vs_bank + 'bp</b><br><br>'
+      + '▎对比' + priceLabel + '<br>  ' + priceLabel + ' ' + bankPrice + '，你的报价 ' + quote.toFixed(4) + '<br>  你比银行牌价<b style="color:' + (data.bp_vs_bank_price >= 0 ? '#22c55e' : '#ef4444') + '">' + (data.bp_vs_bank_price >= 0 ? '优惠' : '更差') + Math.abs(data.bp_vs_bank_price) + 'bp</b>';
+    loadEntries();
+  } catch(e) {
+    document.getElementById('entryResult').textContent = '提交失败: ' + e.message;
+  }
+}
+
+async function loadEntries() {
+  try {
+    const res = await fetch('/api/entries?limit=10');
+    const data = await res.json();
+    const el = document.getElementById('entryRecent');
+    if (!data.entries || data.entries.length === 0) {
+      el.textContent = '暂无录入记录';
+      return;
+    }
+    el.innerHTML = data.entries.map(e =>
+      e.time + ' ' + e.pair + ' ' + e.bank + ' ' + e.direction + ' ' + e.quote.toFixed(4) + ' → 银行赚 ' + e.bp_vs_bank + 'bp'
+    ).join('<br>');
+  } catch(e) {
+    console.error('loadEntries error:', e);
+  }
+}
+
+// ── 日期选择器初始化为今天 ──
+(function initDatePicker() {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  document.getElementById('chartDate').value = y + '-' + m + '-' + d;
+})();
+
+// ── 自动刷新 ──
+fetchQuotes();
+loadChart();
+loadEntries();
+setInterval(fetchQuotes, 15000);   // 报价每 15 秒刷新
+setInterval(loadChart, 60000);     // 图表每分钟刷新（保持当天数据更新）
+</script>
+</body>
+</html>
