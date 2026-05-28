@@ -185,17 +185,27 @@ async def save_entry(
     bank: str = Query(...),
     direction: str = Query(...),
     quote: float = Query(...),
+    time: str = Query(None, description="比较时间点，格式 YYYY-MM-DDTHH:MM，为空则用当前实时报价"),
 ):
-    """录入报价"""
-    market = cfets_cache.get(pair, {})
-    market_mid = market.get("mid", 0)
-    if not market_mid:
-        return {"ok": False, "error": "暂无市场数据，请等待报价刷新"}
+    """录入报价，支持指定历史时间点比价"""
+    if time:
+        hist = db.get_quotes_at_time(pair, bank, time)
+        if not hist:
+            return {"ok": False, "error": f"未找到 {time} 附近的报价数据，请换个时间"}
+        market_mid = hist["market_mid"] or 0
+        bank_bid = hist["bank_bid"]
+        bank_ask = hist["bank_ask"]
+        compare_time = hist["timestamp"][:16]
+    else:
+        market = cfets_cache.get(pair, {})
+        market_mid = market.get("mid", 0)
+        if not market_mid:
+            return {"ok": False, "error": "暂无市场数据，请等待报价刷新"}
+        bq = bank_cache.get(bank, {}).get(pair, {})
+        bank_bid = bq.get("bid") if bq else None
+        bank_ask = bq.get("ask") if bq else None
+        compare_time = "当前实时"
 
-    # 优先使用真实银行牌价，回退到计算值
-    bq = bank_cache.get(bank, {}).get(pair, {})
-    bank_bid = bq.get("bid") if bq else None
-    bank_ask = bq.get("ask") if bq else None
     if bank_bid is None or bank_ask is None:
         spread = BANK_SPREADS.get(bank, {"bid_offset": 0, "ask_offset": 0})
         bank_bid = round(market_mid + spread["bid_offset"], 4)
@@ -231,6 +241,7 @@ async def save_entry(
         "bank_cost": bank_cost,
         "bank_bid": bank_bid,
         "bank_ask": bank_ask,
+        "compare_time": compare_time,
     }
 
 

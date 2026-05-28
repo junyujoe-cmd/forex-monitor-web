@@ -112,6 +112,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
       </select>
       <label>报价</label>
       <input type="number" id="entryQuote" step="0.0001" placeholder="7.2400">
+      <label>时间</label>
+      <input type="datetime-local" id="entryTime">
+      <button class="btn btn-sm" onclick="document.getElementById('entryTime').value=''">现在</button>
       <button class="btn" onclick="submitEntry()">录入</button>
     </div>
     <div class="result-box" id="entryResult">录入后显示计算结果</div>
@@ -329,10 +332,14 @@ async function submitEntry() {
   const bank = document.getElementById('entryBank').value;
   const dir = document.getElementById('entryDir').value;
   const quote = parseFloat(document.getElementById('entryQuote').value);
+  const entryTime = document.getElementById('entryTime').value;
   if (isNaN(quote)) { document.getElementById('entryResult').textContent = '请输入有效的报价数字'; return; }
 
   try {
-    const url = '/api/entry?pair=' + pair + '&bank=' + encodeURIComponent(bank) + '&direction=' + encodeURIComponent(dir) + '&quote=' + quote;
+    let url = '/api/entry?pair=' + pair + '&bank=' + encodeURIComponent(bank) + '&direction=' + encodeURIComponent(dir) + '&quote=' + quote;
+    if (entryTime) {
+      url += '&time=' + encodeURIComponent(entryTime);
+    }
     const res = await fetch(url, { method: 'POST' });
     const data = await res.json();
     if (!data.ok) {
@@ -343,8 +350,10 @@ async function submitEntry() {
     const bankC = data.bank_cost.toFixed(4);
     const bankPrice = dir === '买入价' ? data.bank_bid.toFixed(4) : data.bank_ask.toFixed(4);
     const priceLabel = bank + (dir === '买入价' ? '买入价' : '卖出价');
+    const compareLabel = data.compare_time || '当前实时';
     document.getElementById('entryResult').innerHTML =
-      '▎对比市场中间价<br>  市场成本 ' + market + '，你的报价 ' + quote.toFixed(4) + '<br>  银行赚取 <b style="color:#22c55e">' + data.bp_vs_market + 'bp</b><br><br>'
+      '▎比较基准：<b>' + compareLabel + '</b><br><br>'
+      + '▎对比市场中间价<br>  市场成本 ' + market + '，你的报价 ' + quote.toFixed(4) + '<br>  银行赚取 <b style="color:#22c55e">' + data.bp_vs_market + 'bp</b><br><br>'
       + '▎对比银行自身成本<br>  银行成本 ' + bankC + '，你的报价 ' + quote.toFixed(4) + '<br>  银行赚取 <b style="color:#f59e0b">' + data.bp_vs_bank + 'bp</b><br><br>'
       + '▎对比' + priceLabel + '<br>  ' + priceLabel + ' ' + bankPrice + '，你的报价 ' + quote.toFixed(4) + '<br>  你比银行牌价<b style="color:' + (data.bp_vs_bank_price >= 0 ? '#22c55e' : '#ef4444') + '">' + (data.bp_vs_bank_price >= 0 ? '优惠' : '更差') + Math.abs(data.bp_vs_bank_price) + 'bp</b>';
     loadEntries();

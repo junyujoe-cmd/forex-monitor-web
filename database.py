@@ -193,6 +193,35 @@ class Database:
         conn.close()
         return list(reversed(rows))
 
+    def get_quotes_at_time(self, pair, bank, timestamp_str):
+        """获取指定时间点最近的一组报价（市场价和银行牌价）"""
+        conn = self._get_conn()
+        row = conn.execute("""
+            SELECT fetch_cycle, timestamp, bid, ask, mid
+            FROM market_quotes
+            WHERE pair = ?
+            ORDER BY ABS(julianday(timestamp) - julianday(?)) ASC
+            LIMIT 1
+        """, (pair, timestamp_str)).fetchone()
+        if not row:
+            conn.close()
+            return None
+        fetch_cycle, ts, m_bid, m_ask, m_mid = row
+        b_row = conn.execute("""
+            SELECT bid, ask FROM bank_quotes
+            WHERE fetch_cycle = ? AND bank = ? AND pair = ?
+            LIMIT 1
+        """, (fetch_cycle, bank, pair)).fetchone()
+        conn.close()
+        return {
+            "timestamp": ts,
+            "market_bid": m_bid,
+            "market_ask": m_ask,
+            "market_mid": m_mid,
+            "bank_bid": b_row[0] if b_row else None,
+            "bank_ask": b_row[1] if b_row else None,
+        }
+
     def save_user_entry(self, pair, bank, direction, user_quote, market_cost, bank_cost, bp_vs_market, bp_vs_bank):
         conn = self._get_conn()
         conn.execute(
