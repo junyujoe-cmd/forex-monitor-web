@@ -112,9 +112,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
       </select>
       <label>报价</label>
       <input type="number" id="entryQuote" step="0.0001" placeholder="7.2400">
+      <label>日期</label>
+      <input type="date" id="entryDate" style="flex:1">
       <label>时间</label>
-      <input type="datetime-local" id="entryTime">
-      <button class="btn btn-sm" onclick="document.getElementById('entryTime').value=''">现在</button>
+      <input type="time" id="entryTime" style="flex:1">
+      <button class="btn btn-sm" onclick="document.getElementById('entryDate').value='';document.getElementById('entryTime').value=''">现在</button>
       <button class="btn" onclick="submitEntry()">录入</button>
     </div>
     <div class="result-box" id="entryResult">录入后显示计算结果</div>
@@ -332,13 +334,14 @@ async function submitEntry() {
   const bank = document.getElementById('entryBank').value;
   const dir = document.getElementById('entryDir').value;
   const quote = parseFloat(document.getElementById('entryQuote').value);
+  const entryDate = document.getElementById('entryDate').value;
   const entryTime = document.getElementById('entryTime').value;
   if (isNaN(quote)) { document.getElementById('entryResult').textContent = '请输入有效的报价数字'; return; }
 
   try {
     let url = '/api/entry?pair=' + pair + '&bank=' + encodeURIComponent(bank) + '&direction=' + encodeURIComponent(dir) + '&quote=' + quote;
-    if (entryTime) {
-      url += '&time=' + encodeURIComponent(entryTime);
+    if (entryDate && entryTime) {
+      url += '&time=' + encodeURIComponent(entryDate + 'T' + entryTime);
     }
     const res = await fetch(url, { method: 'POST' });
     const data = await res.json();
