@@ -117,7 +117,9 @@ STATIC.mkdir(exist_ok=True)
 
 @app.get("/")
 async def index():
-    return FileResponse(STATIC / "index.html")
+    from fastapi.responses import Response
+    content = (STATIC / "index.html").read_bytes()
+    return Response(content=content, media_type="text/html", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
