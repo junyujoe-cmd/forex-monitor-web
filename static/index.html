@@ -182,7 +182,7 @@ function renderQuotes(cfets, banks, timestamp) {
         const bq = banks[source] && banks[source][pair];
         const md = cfets[pair] ? cfets[pair].mid : null;
         if (bq) {
-          bid = bq.bid; ask = bq.ask; mid = bq.mid || md;
+          bid = bq.bid; ask = bq.ask; mid = md;
         } else if (md) {
           const sp = BANK_SPREADS[source] || {bid_offset:0,ask_offset:0};
           bid = +(md + sp.bid_offset).toFixed(4);
