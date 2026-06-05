@@ -4,6 +4,7 @@ import pandas as pd
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import akshare as ak
+import xml.etree.ElementTree as ET
 
 
 def fetch_boc_rates():
@@ -140,3 +141,52 @@ def fetch_boc_history(days=30):
         except Exception as e:
             print(f"BOC history error for {symbol}: {e}")
     return result
+
+
+# ── 建设银行 XML 接口 ──────────────────────────────────────────
+
+CCB_CURRENCY_MAP = {
+    "840": "USDCNY",
+    "978": "EURCNY",
+    "392": "JPYCNY",
+    "344": "HKDCNY",
+}
+
+
+def fetch_ccb_rates():
+    """从建设银行 XML 接口获取实时外汇牌价"""
+    try:
+        resp = requests.get(
+            "http://forex.ccb.com/cn/home/news/jshckpj_new.xml",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        resp.encoding = "utf-8"
+        root = ET.fromstring(resp.text)
+        result = {}
+        for item in root.findall("ReferencePriceSettlement"):
+            ccy = item.findtext("Ofrd_Ccy_CcyCd") or item.findtext("Ofr_Ccy_CcyCd")
+            if ccy not in CCB_CURRENCY_MAP:
+                continue
+            pair = CCB_CURRENCY_MAP[ccy]
+            bid_str = item.findtext("BidRateOfCcy")
+            ask_str = item.findtext("OfrRateOfCcy")
+            mid_str = item.findtext("Mdl_ExRt_Prc")
+            if not bid_str or not ask_str:
+                continue
+            bid_val = float(bid_str)
+            ask_val = float(ask_str)
+            mid_val = float(mid_str) if mid_str else round((bid_val + ask_val) / 2, 8)
+            if pair == "JPYCNY":
+                bid_val *= 100
+                ask_val *= 100
+                mid_val *= 100
+            result[pair] = {
+                "bid": round(bid_val, 4),
+                "ask": round(ask_val, 4),
+                "mid": round(mid_val, 4),
+            }
+        return result if result else None
+    except Exception as e:
+        print(f"CCB fetch error: {e}")
+        return None
