@@ -104,7 +104,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
       </select>
       <label>银行</label>
       <select id="entryBank">
-        <option>中国银行</option><option>招商银行</option><option>建设银行</option>
+        <option>中国银行</option><option>招商银行</option><option>建设银行</option><option>杭州银行</option>
       </select>
       <label>方向</label>
       <select id="entryDir">
@@ -135,7 +135,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
       </select>
       <label>银行</label>
       <select id="chartBank" onchange="loadChart()">
-        <option>中国银行</option><option>招商银行</option><option>建设银行</option>
+        <option>中国银行</option><option>招商银行</option><option>建设银行</option><option>杭州银行</option>
       </select>
       <label>日期</label>
       <input type="date" id="chartDate" onchange="loadChart()">
@@ -161,9 +161,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 // ── 报价栏渲染 ──
-const BANK_SPREADS = {"中国银行":{"bid_offset":-0.002,"ask_offset":0.002},"招商银行":{"bid_offset":-0.0015,"ask_offset":0.0015},"建设银行":{"bid_offset":-0.002,"ask_offset":0.002}};
+const BANK_SPREADS = {"中国银行":{"bid_offset":-0.002,"ask_offset":0.002},"招商银行":{"bid_offset":-0.0015,"ask_offset":0.0015},"建设银行":{"bid_offset":-0.002,"ask_offset":0.002},"杭州银行":{"bid_offset":-0.002,"ask_offset":0.002}};
 const PAIRS = ["USDCNY","EURCNY","HKDCNY","JPYCNY"];
-const BANK_NAMES = ["CFETS","中国银行","招商银行","建设银行"];
+const BANK_NAMES = ["CFETS","中国银行","招商银行","建设银行","杭州银行"];
 
 function renderQuotes(cfets, banks, timestamp) {
   const el = document.getElementById('quotesContainer');

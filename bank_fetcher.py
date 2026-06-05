@@ -190,3 +190,53 @@ def fetch_ccb_rates():
     except Exception as e:
         print(f"CCB fetch error: {e}")
         return None
+
+
+# ── 杭州银行 HTML 页面 ──────────────────────────────────────────
+
+HZB_NAME_MAP = {
+    "美元USD": "USDCNY",
+    "欧元EUR": "EURCNY",
+    "日元JPY": "JPYCNY",
+    "港币HKD": "HKDCNY",
+}
+
+
+def fetch_hzb_rates():
+    """从杭州银行官网抓取实时外汇牌价"""
+    try:
+        resp = requests.get(
+            "https://www.hccb.com.cn/hzyh/gjyw/bjfw24/whpj/index.html",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=15,
+            verify=False,
+        )
+        resp.encoding = "utf-8"
+        soup = BeautifulSoup(resp.text, "html.parser")
+        result = {}
+        for tr in soup.find_all("tr"):
+            cells = tr.find_all("td")
+            if len(cells) < 3:
+                continue
+            name = cells[0].text.strip()
+            if name not in HZB_NAME_MAP:
+                continue
+            pair = HZB_NAME_MAP[name]
+            bid_str = cells[1].text.strip()
+            ask_str = cells[3].text.strip()  # 现汇现钞卖出价
+            if not bid_str or not ask_str:
+                continue
+            bid_per_100 = float(bid_str)
+            ask_per_100 = float(ask_str)
+            div = 1 if pair == "JPYCNY" else 100
+            bid_val = round(bid_per_100 / div, 4)
+            ask_val = round(ask_per_100 / div, 4)
+            result[pair] = {
+                "bid": bid_val,
+                "ask": ask_val,
+                "mid": round((bid_val + ask_val) / 2, 4),
+            }
+        return result if result else None
+    except Exception as e:
+        print(f"HZB fetch error: {e}")
+        return None
