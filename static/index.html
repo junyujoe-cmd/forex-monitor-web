@@ -278,7 +278,7 @@ function renderQuotes(cfets, banks, timestamp) {
 
     let statusClass = 'ok';
     let statusText = source === 'CFETS' ? '市场基准' : '正常';
-    if (validPairCount === 0) {
+    if (!hasAnyQuote) {
       statusClass = 'missing';
       statusText = '暂无新数据';
     } else if (validPairCount < PAIRS.length) {

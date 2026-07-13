@@ -578,6 +578,7 @@ process.stdout.write(elements.quotesContainer.innerHTML);
             },
             {
                 "工商银行": {"USDCNY": {"bid": "Infinity", "ask": 6.80}},
+                "招商银行": {"USDCNY": {"bid": 6.75, "ask": "NaN"}},
                 "建设银行": {
                     "USDCNY": {
                         **valid,
@@ -599,8 +600,12 @@ process.stdout.write(elements.quotesContainer.innerHTML);
         self.assertNotIn("Infinity", rendered)
         self.assertIn("部分缺失", self.source_row(rendered, "CFETS"))
         icbc_row = self.source_row(rendered, "工商银行")
-        self.assertIn("暂无新数据", icbc_row)
         self.assertIn('<small class="source-time">真实报价</small>', icbc_row)
+        for bank in ["工商银行", "招商银行"]:
+            bank_row = self.source_row(rendered, bank)
+            self.assertIn('class="quote-status partial"', bank_row)
+            self.assertIn(">部分缺失</div>", bank_row)
+            self.assertNotIn("暂无新数据", bank_row)
         self.assertIn(
             '<small class="source-time">本轮抓取 12:30</small>',
             self.source_row(rendered, "建设银行"),
@@ -609,15 +614,19 @@ process.stdout.write(elements.quotesContainer.innerHTML);
             '<small class="source-time">上次抓取 12:29</small>',
             self.source_row(rendered, "杭州银行"),
         )
-        self.assertIn(
-            '<small class="source-time">等待数据</small>',
-            self.source_row(rendered, "农业银行"),
-        )
+        abc_row = self.source_row(rendered, "农业银行")
+        self.assertIn('<small class="source-time">等待数据</small>', abc_row)
+        self.assertIn('class="quote-status missing"', abc_row)
+        self.assertIn(">暂无新数据</div>", abc_row)
         minsheng_row = self.source_row(rendered, "民生银行")
         self.assertIn('<small class="source-time">源 12:30</small>', minsheng_row)
         self.assertIn(">正常</div>", minsheng_row)
         self.assertIn(
             'aria-label="工商银行 USDCNY 买入 --，卖出 6.8000"',
+            rendered,
+        )
+        self.assertIn(
+            'aria-label="招商银行 USDCNY 买入 6.7500，卖出 --"',
             rendered,
         )
 
