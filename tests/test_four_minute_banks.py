@@ -1,5 +1,6 @@
 import asyncio
 import json
+import shutil
 import ssl
 import subprocess
 import tempfile
@@ -14,6 +15,9 @@ import bank_fetcher
 import server
 from config import BANKS
 from database import Database
+
+
+NODE_BINARY = shutil.which("node")
 
 
 def current_time():
@@ -488,7 +492,7 @@ renderQuotes(
 process.stdout.write(elements.quotesContainer.innerHTML);
 """
         result = subprocess.run(
-            ["node", "-e", harness],
+            [NODE_BINARY, "-e", harness],
             check=True,
             capture_output=True,
             text=True,
@@ -503,6 +507,7 @@ process.stdout.write(elements.quotesContainer.innerHTML);
         row_end = rendered.find('<div class="source-row', marker_pos)
         return rendered[row_start:row_end if row_end >= 0 else len(rendered)]
 
+    @unittest.skipUnless(NODE_BINARY, "Node.js is required for dynamic frontend rendering")
     def test_non_finite_and_partial_quotes_render_truthful_states(self):
         valid = {"bid": 6.76, "ask": 6.79}
         full_bank = {
