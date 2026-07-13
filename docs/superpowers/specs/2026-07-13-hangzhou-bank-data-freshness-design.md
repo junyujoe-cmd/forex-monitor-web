@@ -9,13 +9,13 @@ Ensure Hangzhou Bank prices shown as current are official, recent, and stored wi
 ## Confirmed Root Cause / 已确认根因
 
 - The configured `https://www.hccb.com.cn/...` endpoint now returns HTTP 403.
-- The working official endpoint is `http://www.hzbank.com.cn/...`.
+- The working official endpoint is `https://www.hzbank.com.cn/...`.
 - The cloud process has displayed the last successful Hangzhou Bank quote from 2026-06-24 as if it were current.
 - Market quotes continue to be saved every minute, but no Hangzhou Bank rows have been saved since 2026-06-24. The chart therefore has market values but null bank bid/ask values.
 - The frontend generates synthetic bank prices from market mid-price offsets when real bank data is missing.
 
 - 当前配置的 `https://www.hccb.com.cn/...` 已返回 HTTP 403。
-- 可用的官方入口是 `http://www.hzbank.com.cn/...`。
+- 可用的官方入口是 `https://www.hzbank.com.cn/...`。
 - 云端进程把 2026-06-24 最后一次成功取得的杭州银行报价持续当作当前报价展示。
 - 市场价仍每分钟保存，但杭州银行从 2026-06-24 后没有新记录，因此历史图只有市场价，买卖价为空。
 - 当前端缺少真实银行数据时，会根据市场中间价生成模拟银行价。

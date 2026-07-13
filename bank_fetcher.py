@@ -206,20 +206,24 @@ def fetch_hzb_rates():
     """从杭州银行官网抓取实时外汇牌价"""
     try:
         resp = requests.get(
-            "https://www.hccb.com.cn/hzyh/gjyw/bjfw24/whpj/index.html",
+            "https://www.hzbank.com.cn/hzyh/gjyw/bjfw24/whpj/index.html",
             headers={"User-Agent": "Mozilla/5.0"},
             timeout=15,
-            verify=False,
         )
+        resp.raise_for_status()
         resp.encoding = "utf-8"
         soup = BeautifulSoup(resp.text, "html.parser")
         result = {}
         for tr in soup.find_all("tr"):
             cells = tr.find_all("td")
-            if len(cells) < 3:
+            if len(cells) < 5:
                 continue
             name = cells[0].text.strip()
             if name not in HZB_NAME_MAP:
+                continue
+            source_time_text = cells[4].text.strip()
+            source_time = datetime.strptime(source_time_text, "%Y-%m-%d %H:%M:%S")
+            if datetime.now() - source_time > timedelta(minutes=10):
                 continue
             pair = HZB_NAME_MAP[name]
             bid_str = cells[1].text.strip()
@@ -235,6 +239,7 @@ def fetch_hzb_rates():
                 "bid": bid_val,
                 "ask": ask_val,
                 "mid": round((bid_val + ask_val) / 2, 4),
+                "source_time": source_time_text,
             }
         return result if result else None
     except Exception as e:

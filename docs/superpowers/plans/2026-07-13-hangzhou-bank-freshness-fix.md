@@ -136,7 +136,7 @@ The implementation must retain the existing function signature and use the exist
 def fetch_hzb_rates():
     try:
         resp = requests.get(
-            "http://www.hzbank.com.cn/hzyh/gjyw/bjfw24/whpj/index.html",
+            "https://www.hzbank.com.cn/hzyh/gjyw/bjfw24/whpj/index.html",
             headers={"User-Agent": "Mozilla/5.0"},
             timeout=15,
         )

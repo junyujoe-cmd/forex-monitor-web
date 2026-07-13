@@ -23,13 +23,12 @@ bank_cache: dict = {}
 last_boc_rates: dict = {}   # 最近一次成功的银行牌价，抓取失败时作为后备
 last_cmb_rates: dict = {}
 last_ccb_rates: dict = {}
-last_hzb_rates: dict = {}
 last_update: str = ""
 
 
 def fetch_and_save():
     """定时抓取任务（和原来 main_window.py 逻辑一致）"""
-    global cfets_cache, bank_cache, last_boc_rates, last_cmb_rates, last_ccb_rates, last_hzb_rates, last_update
+    global cfets_cache, bank_cache, last_boc_rates, last_cmb_rates, last_ccb_rates, last_update
 
     cycle_id = datetime.now().isoformat()
     quotes = fetch_all_quotes() or {}
@@ -49,9 +48,6 @@ def fetch_and_save():
         last_cmb_rates = dict(cmb_rates)
     if ccb_rates:
         last_ccb_rates = dict(ccb_rates)
-    if hzb_rates:
-        last_hzb_rates = dict(hzb_rates)
-
     # 保存银行报价到数据库：只用真实数据，无数据时不保存
     bank_data = []
     for pair, data in quotes.items():
@@ -73,7 +69,7 @@ def fetch_and_save():
 
     # 构建银行报价缓存（实时报价用，可缓存上次成功值）
     bank_quotes_full: dict = {}
-    for bank, rates in [("中国银行", boc_rates or last_boc_rates), ("招商银行", cmb_rates or last_cmb_rates), ("建设银行", ccb_rates or last_ccb_rates), ("杭州银行", hzb_rates or last_hzb_rates)]:
+    for bank, rates in [("中国银行", boc_rates or last_boc_rates), ("招商银行", cmb_rates or last_cmb_rates), ("建设银行", ccb_rates or last_ccb_rates), ("杭州银行", hzb_rates)]:
         if rates:
             bank_quotes_full[bank] = {}
             for pair, r in rates.items():

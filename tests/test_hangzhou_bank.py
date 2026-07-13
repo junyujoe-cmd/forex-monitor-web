@@ -42,7 +42,7 @@ class HangzhouBankFetcherTests(unittest.TestCase):
         self.assertEqual(rates["USDCNY"]["source_time"], source_time)
         self.assertEqual(
             mock_get.call_args.args[0],
-            "http://www.hzbank.com.cn/hzyh/gjyw/bjfw24/whpj/index.html",
+            "https://www.hzbank.com.cn/hzyh/gjyw/bjfw24/whpj/index.html",
         )
 
     @patch("bank_fetcher.requests.get")

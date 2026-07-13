@@ -161,7 +161,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 // ── 报价栏渲染 ──
-const BANK_SPREADS = {"中国银行":{"bid_offset":-0.002,"ask_offset":0.002},"招商银行":{"bid_offset":-0.0015,"ask_offset":0.0015},"建设银行":{"bid_offset":-0.002,"ask_offset":0.002},"杭州银行":{"bid_offset":-0.002,"ask_offset":0.002}};
 const PAIRS = ["USDCNY","EURCNY","HKDCNY","JPYCNY"];
 const BANK_NAMES = ["CFETS","中国银行","招商银行","建设银行","杭州银行"];
 
@@ -183,11 +182,6 @@ function renderQuotes(cfets, banks, timestamp) {
         const md = cfets[pair] ? cfets[pair].mid : null;
         if (bq) {
           bid = bq.bid; ask = bq.ask; mid = md;
-        } else if (md) {
-          const sp = BANK_SPREADS[source] || {bid_offset:0,ask_offset:0};
-          bid = +(md + sp.bid_offset).toFixed(4);
-          ask = +(md + sp.ask_offset).toFixed(4);
-          mid = md;
         }
         bankCost = (bid != null && ask != null) ? +((bid + ask) / 2).toFixed(4) : null;
       }
