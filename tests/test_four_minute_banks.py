@@ -513,6 +513,35 @@ class QuoteMatrixFrontendTests(unittest.TestCase):
         for bank in ["工商银行", "农业银行", "邮储银行", "民生银行"]:
             self.assertEqual(self.html.count(f"<option>{bank}</option>"), 2)
 
+    def test_entry_workspace_has_professional_structure_and_live_regions(self):
+        for marker in [
+            'class="workspace-tabs"',
+            'class="entry-layout"',
+            'class="entry-panel"',
+            'class="recent-panel"',
+            'class="field"',
+            'class="result-card"',
+            'aria-live="polite"',
+            'role="status"',
+            'type="date" id="entryDate"',
+            'type="time" id="entryTime"',
+            '>现在</button>',
+        ]:
+            self.assertIn(marker, self.html)
+        self.assertNotIn('id="entryDate" style=', self.html)
+        self.assertNotIn('id="entryTime" style=', self.html)
+
+    def test_loading_and_request_failures_are_inline_and_retryable(self):
+        for marker in [
+            'function renderQuoteSkeleton()',
+            'function showInlineError(containerId, message)',
+            '报价暂时无法获取，系统将在下一轮自动重试',
+            '最近录入暂时无法获取，请稍后重试',
+            '图表暂时无法获取，请稍后重试',
+        ]:
+            self.assertIn(marker, self.html)
+        self.assertNotIn('alert(', self.html)
+
     def test_matrix_has_no_repeated_midpoint_cost_line(self):
         self.assertNotIn("pair-card .costs", self.html)
         self.assertNotIn("市场' + mc + ' 银行' + bc", self.html)

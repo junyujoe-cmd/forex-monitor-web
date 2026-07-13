@@ -62,35 +62,51 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .quote-status.partial{color:var(--warn)}
 .quote-status.missing{color:var(--danger)}
 
-/* ── Tab Bar ── */
-.tab-bar{display:flex;background:#0f3460;margin:6px 8px 0;border-radius:6px 6px 0 0;overflow:hidden}
-.tab-btn{flex:1;padding:10px;text-align:center;font-size:14px;cursor:pointer;border:none;background:transparent;color:#888;transition:all .2s}
-.tab-btn.active{background:#1a1a2e;color:#fff;font-weight:600}
-.tab-btn:hover{color:#ddd}
-
-/* ── Tab Content ── */
-.tab-content{background:#1a1a2e;margin:0 8px 8px;border-radius:0 0 6px 6px;padding:14px;min-height:300px}
+/* ── Quote Workspace ── */
+.workspace-panel{margin-top:12px;overflow:hidden}
+.workspace-tabs{display:flex;align-items:center;gap:2px;padding:0 14px;background:var(--panel-raised);border-bottom:1px solid var(--line)}
+.tab-btn{appearance:none;min-width:120px;padding:14px 16px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;letter-spacing:.03em;cursor:pointer;transition:color .14s ease,background-color .14s ease,border-color .14s ease}
+.tab-btn:hover{color:var(--text);background:rgba(220,229,232,.03)}
+.tab-btn:focus-visible{outline:1px solid var(--accent);outline-offset:-3px}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(86,216,179,.055)}
+.tab-content{padding:16px;min-height:330px}
 .tab-pane{display:none}
 .tab-pane.active{display:block}
-
-/* ── Entry Form ── */
-.form-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
-.form-row label{font-size:13px;color:#aaa;white-space:nowrap}
-.form-row select,.form-row input{background:#0a1628;color:#ccc;border:1px solid #333;border-radius:4px;padding:7px 10px;font-size:14px;outline:none}
-.form-row select:focus,.form-row input:focus{border-color:#4ade80}
-.form-row input{width:120px}
-.btn{background:#22c55e;color:#fff;border:none;border-radius:4px;padding:8px 20px;font-size:14px;cursor:pointer;font-weight:600}
-.btn:hover{background:#16a34a}
-.btn-sm{font-size:12px;padding:5px 12px}
-
-.result-box{background:#0a1628;border-radius:6px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.8;white-space:pre-wrap}
-.recent{font-size:12px;color:#888;line-height:1.8}
-.recent-title{color:#aaa;margin-bottom:4px}
+.entry-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,.55fr);gap:14px}
+.entry-panel,.recent-panel{padding:16px;border:1px solid var(--line-soft);background:var(--panel-raised)}
+.section-kicker{display:block;margin-bottom:6px;color:var(--muted);font-size:9px;line-height:1.2;letter-spacing:.17em}
+.entry-panel h2,.recent-panel h2,.chart-heading h2{color:var(--text);font-size:14px;font-weight:650}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+.field{display:flex;min-width:0;flex-direction:column;gap:6px;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.02em}
+.field-wide{grid-column:1/-1}
+.field select,.field input{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--line);border-radius:2px;background:var(--page);color:var(--text);font:inherit;font-size:13px;outline:none}
+.field select:focus,.field input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(86,216,179,.08)}
+.field input::placeholder{color:var(--muted)}
+.form-actions{grid-column:1/-1;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-top:2px}
+.btn{appearance:none;min-height:38px;padding:8px 17px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--page);font:inherit;font-size:12px;font-weight:750;cursor:pointer;transition:background-color .14s ease,color .14s ease}
+.btn:hover{background:#70e2c1}
+.btn:focus-visible{outline:1px solid var(--text);outline-offset:2px}
+.btn-secondary{border-color:var(--line);background:transparent;color:var(--text)}
+.btn-secondary:hover{border-color:var(--muted);background:rgba(220,229,232,.04)}
+.result-card{min-height:92px;margin-top:14px;padding:13px 14px;border:1px solid var(--line);border-left:2px solid var(--accent);background:var(--panel);color:var(--muted);font-size:12px;line-height:1.65}
+.result-card b{color:var(--text);font-weight:650}
+.result-positive{color:var(--bid);font-weight:700}
+.result-negative{color:var(--ask);font-weight:700}
+.recent-list{margin-top:14px;color:var(--muted);font-size:11px}
+.recent-entry{padding:11px 0;border-bottom:1px solid var(--line-soft)}
+.recent-entry:first-child{padding-top:0}
+.recent-entry:last-child{border-bottom:0}
+.recent-entry-main{color:var(--text);font-size:12px;font-weight:650}
+.recent-entry-meta{margin-top:4px;color:var(--muted);font-size:10px;line-height:1.5;font-variant-numeric:tabular-nums}
+.inline-state{display:grid;min-height:112px;place-items:center;padding:20px;text-align:center;color:var(--muted);font-size:12px;line-height:1.6}
+.inline-error{color:var(--danger);border:1px solid rgba(231,119,112,.28);background:rgba(231,119,112,.045)}
+.skeleton-matrix .source-row{pointer-events:none}
+.skeleton-line{display:inline-block;width:58px;height:8px;border-radius:1px;background:var(--line);vertical-align:middle}
+.skeleton-line+.skeleton-line{margin-left:10px;width:48px;background:var(--line-soft)}
 
 /* ── Chart ── */
-.chart-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-.chart-controls label{font-size:13px;color:#aaa}
-.chart-controls select{background:#0a1628;color:#ccc;border:1px solid #333;border-radius:4px;padding:6px 10px;font-size:13px;outline:none}
+.chart-heading{margin-bottom:14px}
+.chart-controls{grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 14px}
 #chart{width:100%;height:400px}
 @media(max-width:600px){#chart{height:300px}}
 
@@ -106,9 +122,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
   .quote-matrix{min-width:900px}
   .quote-head,.source-row{grid-template-columns:130px repeat(4,minmax(145px,1fr)) 90px}
   .source-name{padding-left:8px}
-  .form-row{gap:6px}
-  .form-row select,.form-row input{font-size:13px;padding:6px 8px}
-  .form-row input{width:100px}
 }
 </style>
 </head>
@@ -147,70 +160,90 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
   </div>
 </section>
 
-<!-- Tab Bar -->
-<div class="tab-bar">
-  <button class="tab-btn active" data-tab="entry">录入报价</button>
-  <button class="tab-btn" data-tab="chart">历史图表</button>
-</div>
+<!-- Quote Entry Workspace -->
+<section class="panel workspace-panel">
+  <nav class="workspace-tabs" role="tablist" aria-label="报价工作区">
+    <button class="tab-btn active" id="entryTab" type="button" role="tab" aria-selected="true" aria-controls="tab-entry" data-tab="entry">录入报价</button>
+    <button class="tab-btn" id="chartTab" type="button" role="tab" aria-selected="false" aria-controls="tab-chart" data-tab="chart">历史图表</button>
+  </nav>
 
-<!-- Tab Content -->
-<div class="tab-content">
+  <div class="tab-content">
+    <div class="tab-pane active" id="tab-entry" role="tabpanel" aria-labelledby="entryTab">
+      <div class="entry-layout">
+        <section class="entry-panel" aria-labelledby="entryPanelTitle">
+          <span class="section-kicker">QUOTE ENTRY</span>
+          <h2 id="entryPanelTitle">录入客户报价</h2>
+          <div class="form-grid">
+            <label class="field">货币对
+              <select id="entryPair">
+                <option>USDCNY</option><option>EURCNY</option><option>HKDCNY</option><option>JPYCNY</option>
+              </select>
+            </label>
+            <label class="field">银行
+              <select id="entryBank">
+                <option>中国银行</option><option>招商银行</option>
+                <option>建设银行</option><option>杭州银行</option>
+                <option>工商银行</option><option>农业银行</option>
+                <option>邮储银行</option><option>民生银行</option>
+              </select>
+            </label>
+            <label class="field">方向
+              <select id="entryDir">
+                <option>买入价</option><option>卖出价</option>
+              </select>
+            </label>
+            <label class="field">报价
+              <input type="number" id="entryQuote" step="0.0001" inputmode="decimal" placeholder="7.2400">
+            </label>
+            <label class="field">日期
+              <input type="date" id="entryDate">
+            </label>
+            <label class="field">时间
+              <input type="time" id="entryTime">
+            </label>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('entryDate').value='';document.getElementById('entryTime').value=''">现在</button>
+              <button type="button" class="btn" onclick="submitEntry()">录入并计算</button>
+            </div>
+          </div>
+          <div class="result-card" id="entryResult" role="status" aria-live="polite">录入后显示计算结果</div>
+        </section>
 
-  <!-- Entry Tab -->
-  <div class="tab-pane active" id="tab-entry">
-    <div class="form-row">
-      <label>货币对</label>
-      <select id="entryPair">
-        <option>USDCNY</option><option>EURCNY</option><option>HKDCNY</option><option>JPYCNY</option>
-      </select>
-      <label>银行</label>
-      <select id="entryBank">
-        <option>中国银行</option><option>招商银行</option>
-        <option>建设银行</option><option>杭州银行</option>
-        <option>工商银行</option><option>农业银行</option>
-        <option>邮储银行</option><option>民生银行</option>
-      </select>
-      <label>方向</label>
-      <select id="entryDir">
-        <option>买入价</option><option>卖出价</option>
-      </select>
-      <label>报价</label>
-      <input type="number" id="entryQuote" step="0.0001" placeholder="7.2400">
-      <label>日期</label>
-      <input type="date" id="entryDate" style="flex:1">
-      <label>时间</label>
-      <input type="time" id="entryTime" style="flex:1">
-      <button class="btn btn-sm" onclick="document.getElementById('entryDate').value='';document.getElementById('entryTime').value=''">现在</button>
-      <button class="btn" onclick="submitEntry()">录入</button>
+        <aside class="recent-panel" aria-labelledby="recentPanelTitle">
+          <span class="section-kicker">RECENT ENTRIES</span>
+          <h2 id="recentPanelTitle">最近录入</h2>
+          <div class="recent-list" id="entryRecent" role="status" aria-live="polite">暂无录入记录</div>
+        </aside>
+      </div>
     </div>
-    <div class="result-box" id="entryResult">录入后显示计算结果</div>
-    <div class="recent">
-      <div class="recent-title">最近录入：</div>
-      <div id="entryRecent">暂无录入记录</div>
+
+    <div class="tab-pane" id="tab-chart" role="tabpanel" aria-labelledby="chartTab">
+      <div class="chart-heading">
+        <span class="section-kicker">HISTORICAL TREND</span>
+        <h2>历史报价图表</h2>
+      </div>
+      <div class="form-grid chart-controls">
+        <label class="field">货币对
+          <select id="chartPair" onchange="loadChart()">
+            <option>USDCNY</option><option>EURCNY</option><option>HKDCNY</option><option>JPYCNY</option>
+          </select>
+        </label>
+        <label class="field">银行
+          <select id="chartBank" onchange="loadChart()">
+            <option>中国银行</option><option>招商银行</option>
+            <option>建设银行</option><option>杭州银行</option>
+            <option>工商银行</option><option>农业银行</option>
+            <option>邮储银行</option><option>民生银行</option>
+          </select>
+        </label>
+        <label class="field">日期
+          <input type="date" id="chartDate" onchange="loadChart()">
+        </label>
+      </div>
+      <div id="chart" role="img" aria-label="所选货币对与银行的历史报价趋势图"></div>
     </div>
   </div>
-
-  <!-- Chart Tab -->
-  <div class="tab-pane" id="tab-chart">
-    <div class="chart-controls">
-      <label>货币对</label>
-      <select id="chartPair" onchange="loadChart()">
-        <option>USDCNY</option><option>EURCNY</option><option>HKDCNY</option><option>JPYCNY</option>
-      </select>
-      <label>银行</label>
-      <select id="chartBank" onchange="loadChart()">
-        <option>中国银行</option><option>招商银行</option>
-        <option>建设银行</option><option>杭州银行</option>
-        <option>工商银行</option><option>农业银行</option>
-        <option>邮储银行</option><option>民生银行</option>
-      </select>
-      <label>日期</label>
-      <input type="date" id="chartDate" onchange="loadChart()">
-    </div>
-    <div id="chart"></div>
-  </div>
-
-</div>
+</section>
 </main>
 
 <script>
@@ -220,9 +253,13 @@ let chartInstance = null;
 // ── Tab 切换 ──
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+    });
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
     if (btn.dataset.tab === 'chart') setTimeout(() => { if (chartInstance) chartInstance.resize(); else loadChart(); }, 50);
   });
@@ -234,6 +271,31 @@ const BANK_NAMES = [
   "CFETS","中国银行","招商银行","建设银行","杭州银行",
   "工商银行","农业银行","邮储银行","民生银行"
 ];
+
+function renderQuoteSkeleton() {
+  const el = document.getElementById('quotesContainer');
+  let html = '<div role="status" aria-live="polite" aria-label="正在加载外汇报价">'
+    + '<div class="quote-matrix skeleton-matrix" role="table" aria-label="外汇报价加载骨架">'
+    + '<div class="quote-head" role="row"><div class="source-name" role="columnheader">数据来源</div>'
+    + PAIRS.map(pair => '<div role="columnheader"><b>' + pair + '</b><span class="buy-label">买入</span><span class="sell-label">卖出</span></div>').join('')
+    + '<div role="columnheader">状态</div></div>';
+  html += BANK_NAMES.map(source =>
+    '<div class="source-row" role="row"><div class="source-name" role="rowheader"><span>' + source + '</span></div>'
+    + PAIRS.map(() => '<div class="quote-cell" role="cell"><span class="skeleton-line"></span><span class="skeleton-line"></span></div>').join('')
+    + '<div class="quote-status" role="cell"><span class="skeleton-line"></span></div></div>'
+  ).join('');
+  el.innerHTML = html + '</div></div>';
+}
+
+function showInlineError(containerId, message) {
+  const container = document.getElementById(containerId);
+  const error = document.createElement('div');
+  error.className = 'inline-state inline-error';
+  error.setAttribute('role', 'status');
+  error.setAttribute('aria-live', 'polite');
+  error.textContent = message;
+  container.replaceChildren(error);
+}
 
 function renderQuotes(cfets, banks, timestamp) {
   const el = document.getElementById('quotesContainer');
@@ -297,10 +359,12 @@ function renderQuotes(cfets, banks, timestamp) {
 async function fetchQuotes() {
   try {
     const res = await fetch('/api/quotes');
+    if (!res.ok) throw new Error('quotes request failed: ' + res.status);
     const data = await res.json();
     renderQuotes(data.cfets || {}, data.banks || {}, data.timestamp);
   } catch(e) {
     console.error('fetchQuotes error:', e);
+    showInlineError('quotesContainer', '报价暂时无法获取，系统将在下一轮自动重试');
   }
 }
 
@@ -322,10 +386,13 @@ async function loadChart() {
   }
   try {
     const res = await fetch(url);
+    if (!res.ok) throw new Error('chart request failed: ' + res.status);
     const data = await res.json();
     renderChart(data);
   } catch(e) {
     console.error('loadChart error:', e);
+    if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
+    showInlineError('chart', '图表暂时无法获取，请稍后重试');
   }
 }
 
@@ -338,6 +405,7 @@ function renderChart(data) {
   }
 
   if (chartInstance) chartInstance.dispose();
+  dom.replaceChildren();
   chartInstance = echarts.init(dom);
 
   const sources = data.sources || [];
@@ -434,18 +502,20 @@ async function submitEntry() {
     }
     const res = await fetch(url, { method: 'POST' });
     const data = await res.json();
-    if (!data.ok) {
-      document.getElementById('entryResult').textContent = data.error;
+    if (!res.ok || !data.ok) {
+      document.getElementById('entryResult').textContent = data.error || '提交失败，请稍后重试';
       return;
     }
     const market = data.market_cost.toFixed(4);
     const bankPrice = dir === '买入价' ? data.bank_bid.toFixed(4) : data.bank_ask.toFixed(4);
     const priceLabel = bank + (dir === '买入价' ? '买入价' : '卖出价');
     const compareLabel = data.compare_time || '当前实时';
+    const marketClass = data.bp_vs_market >= 0 ? 'result-positive' : 'result-negative';
+    const bankClass = data.bp_vs_bank_price >= 0 ? 'result-positive' : 'result-negative';
     document.getElementById('entryResult').innerHTML =
       '▎比较基准：<b>' + compareLabel + '</b><br><br>'
-      + '▎对比市场中间价<br>  市场成本 ' + market + '，你的报价 ' + quote.toFixed(4) + '<br>  银行赚取 <b style="color:#22c55e">' + data.bp_vs_market + 'bp</b><br><br>'
-      + '▎对比' + priceLabel + '<br>  ' + priceLabel + ' ' + bankPrice + '，你的报价 ' + quote.toFixed(4) + '<br>  你比银行牌价<b style="color:' + (data.bp_vs_bank_price >= 0 ? '#22c55e' : '#ef4444') + '">' + (data.bp_vs_bank_price >= 0 ? '优惠' : '更差') + Math.abs(data.bp_vs_bank_price) + 'bp</b>';
+      + '▎对比市场中间价<br>市场成本 ' + market + '，你的报价 ' + quote.toFixed(4) + '<br>银行赚取 <span class="' + marketClass + '">' + data.bp_vs_market + 'bp</span><br><br>'
+      + '▎与银行牌价比较<br>' + priceLabel + ' ' + bankPrice + '，你的报价 ' + quote.toFixed(4) + '<br>你比银行牌价<span class="' + bankClass + '">' + (data.bp_vs_bank_price >= 0 ? '优惠' : '更差') + Math.abs(data.bp_vs_bank_price) + 'bp</span>';
     loadEntries();
   } catch(e) {
     document.getElementById('entryResult').textContent = '提交失败: ' + e.message;
@@ -455,17 +525,33 @@ async function submitEntry() {
 async function loadEntries() {
   try {
     const res = await fetch('/api/entries?limit=10');
+    if (!res.ok) throw new Error('entries request failed: ' + res.status);
     const data = await res.json();
     const el = document.getElementById('entryRecent');
     if (!data.entries || data.entries.length === 0) {
       el.textContent = '暂无录入记录';
       return;
     }
-    el.innerHTML = data.entries.map(e =>
-      e.time + ' ' + e.pair + ' ' + e.bank + ' ' + e.direction + ' ' + e.quote.toFixed(4) + ' → 银行赚 ' + e.bp_vs_market + 'bp'
-    ).join('<br>');
+    const fragment = document.createDocumentFragment();
+    data.entries.forEach(entry => {
+      const item = document.createElement('article');
+      const main = document.createElement('div');
+      const meta = document.createElement('div');
+      const quote = Number(entry.quote);
+      main.className = 'recent-entry-main';
+      meta.className = 'recent-entry-meta';
+      item.className = 'recent-entry';
+      main.textContent = entry.pair + ' · ' + entry.bank;
+      meta.textContent = entry.time + ' · ' + entry.direction + ' '
+        + (Number.isFinite(quote) ? quote.toFixed(4) : '--')
+        + ' · 银行赚 ' + entry.bp_vs_market + 'bp';
+      item.append(main, meta);
+      fragment.append(item);
+    });
+    el.replaceChildren(fragment);
   } catch(e) {
     console.error('loadEntries error:', e);
+    showInlineError('entryRecent', '最近录入暂时无法获取，请稍后重试');
   }
 }
 
@@ -479,6 +565,7 @@ async function loadEntries() {
 })();
 
 // ── 自动刷新 ──
+renderQuoteSkeleton();
 fetchQuotes();
 loadChart();
 loadEntries();
