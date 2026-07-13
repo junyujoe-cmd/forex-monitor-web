@@ -68,19 +68,16 @@ class HangzhouBankFetcherTests(unittest.TestCase):
 class HangzhouBankPipelineTests(unittest.TestCase):
     def test_failed_fetch_does_not_reuse_old_hangzhou_quotes(self):
         server.bank_cache.clear()
-        if hasattr(server, "last_hzb_rates"):
-            server.last_hzb_rates.clear()
-            server.last_hzb_rates["USDCNY"] = {"bid": 9, "ask": 10, "mid": 9.5}
         market = {"USDCNY": {"bid": 6.78, "ask": 6.79, "mid": 6.785}}
-        fake_db = Mock()
+        bank_rates = {name: {} for name in [
+            "中国银行", "招商银行", "建设银行", "杭州银行",
+            "工商银行", "农业银行", "邮储银行", "民生银行",
+        ]}
 
         with (
-            patch.object(server, "db", fake_db),
+            patch.object(server, "db", Mock()),
             patch.object(server, "fetch_all_quotes", return_value=market),
-            patch.object(server, "fetch_boc_rates", return_value=None),
-            patch.object(server, "fetch_cmb_rates", return_value=None),
-            patch.object(server, "fetch_ccb_rates", return_value=None),
-            patch.object(server, "fetch_hzb_rates", return_value=None),
+            patch.object(server, "_fetch_all_bank_rates", return_value=bank_rates),
         ):
             server.fetch_and_save()
 

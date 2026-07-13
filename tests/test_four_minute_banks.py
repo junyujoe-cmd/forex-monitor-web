@@ -1,16 +1,26 @@
+import asyncio
 import json
 import ssl
+import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import requests
 
 import bank_fetcher
+import server
+from config import BANKS
+from database import Database
 
 
 def current_time():
     return datetime.now().replace(microsecond=0)
+
+
+def current_text():
+    return current_time().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def response_with_json(payload):
@@ -289,6 +299,111 @@ class FourMinuteBankFetcherTests(unittest.TestCase):
                     response.text = text
                 with patch(f"bank_fetcher.{request_target}", return_value=response):
                     self.assertIsNone(self.get_fetcher(fetcher_name)())
+
+
+class NewBankPipelineTests(unittest.TestCase):
+    def setUp(self):
+        server.cfets_cache.clear()
+        server.bank_cache.clear()
+
+    def test_current_new_bank_quote_is_saved_and_exposed(self):
+        market = {"USDCNY": {"bid": 6.77, "ask": 6.78, "mid": 6.775}}
+        icbc = {"USDCNY": {"bid": 6.76, "ask": 6.79, "mid": 6.775, "source_time": current_text()}}
+        fake_db = Mock()
+        bank_rates = {name: {} for name in [
+            "中国银行", "招商银行", "建设银行", "杭州银行",
+            "工商银行", "农业银行", "邮储银行", "民生银行",
+        ]}
+        bank_rates["工商银行"] = icbc
+
+        with (
+            patch.object(server, "db", fake_db),
+            patch.object(server, "fetch_all_quotes", return_value=market),
+            patch.object(server, "_fetch_all_bank_rates", return_value=bank_rates),
+        ):
+            server.fetch_and_save()
+
+        self.assertEqual(server.bank_cache["工商银行"], icbc)
+        self.assertIn("fetch_time", server.bank_cache["工商银行"]["USDCNY"])
+        saved = fake_db.save_bank_quotes_batch.call_args.args[1]
+        self.assertIn(("工商银行", "USDCNY", 6.76, 6.79), saved)
+
+    def test_bank_fetch_pipeline_isolates_one_bank_failure(self):
+        expected = {"USDCNY": {"bid": 6.76, "ask": 6.79}}
+        with (
+            patch.object(server, "fetch_boc_rates", return_value=expected),
+            patch.object(server, "fetch_cmb_rates", return_value=expected),
+            patch.object(server, "fetch_ccb_rates", return_value=expected),
+            patch.object(server, "fetch_hzb_rates", return_value=expected),
+            patch.object(server, "fetch_icbc_rates", return_value=expected),
+            patch.object(server, "fetch_abc_rates", return_value=expected),
+            patch.object(server, "fetch_psbc_rates", return_value=expected),
+            patch.object(server, "fetch_cmbc_rates", side_effect=RuntimeError("offline")),
+        ):
+            results = server._fetch_all_bank_rates()
+
+        self.assertEqual(set(results), set(BANKS))
+        self.assertEqual(results["工商银行"], expected)
+        self.assertEqual(results["民生银行"], {})
+
+    def test_failed_new_bank_fetch_does_not_reuse_previous_quote(self):
+        server.bank_cache["工商银行"] = {"USDCNY": {"bid": 9, "ask": 10}}
+        market = {"USDCNY": {"bid": 6.77, "ask": 6.78, "mid": 6.775}}
+        bank_rates = {name: {} for name in [
+            "中国银行", "招商银行", "建设银行", "杭州银行",
+            "工商银行", "农业银行", "邮储银行", "民生银行",
+        ]}
+
+        with (
+            patch.object(server, "db", Mock()),
+            patch.object(server, "fetch_all_quotes", return_value=market),
+            patch.object(server, "_fetch_all_bank_rates", return_value=bank_rates),
+        ):
+            server.fetch_and_save()
+
+        self.assertNotIn("工商银行", server.bank_cache)
+
+    def test_entry_rejects_missing_real_bank_quote(self):
+        server.cfets_cache["USDCNY"] = {"bid": 6.77, "ask": 6.78, "mid": 6.775}
+        fake_db = Mock()
+
+        with patch.object(server, "db", fake_db):
+            result = asyncio.run(
+                server.save_entry("USDCNY", "工商银行", "买入价", 6.77, None)
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertIn("暂无真实银行报价", result["error"])
+        fake_db.save_user_entry.assert_not_called()
+
+    def test_canonical_bank_list_contains_eight_banks(self):
+        self.assertEqual(BANKS, [
+            "中国银行", "招商银行", "建设银行", "杭州银行",
+            "工商银行", "农业银行", "邮储银行", "民生银行",
+        ])
+
+    def test_saved_new_bank_quotes_are_returned_by_chart_query(self):
+        now = datetime.now()
+        chart_date = now - timedelta(days=1) if now.time() < time(9, 30) else now
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Database(str(Path(tmp) / "quotes.db"))
+            cycle = now.isoformat()
+            database.save_market_quotes_batch(
+                cycle,
+                {"USDCNY": {"bid": 6.77, "ask": 6.78, "mid": 6.775}},
+                "CFETS",
+            )
+            database.save_bank_quotes_batch(
+                cycle,
+                [("工商银行", "USDCNY", 6.76, 6.79)],
+            )
+            rows = database.get_chart_data(
+                "USDCNY",
+                "工商银行",
+                date_str=chart_date.strftime("%Y-%m-%d"),
+            )
+
+        self.assertTrue(any(row[2] == 6.76 and row[3] == 6.79 for row in rows))
 
 
 if __name__ == "__main__":

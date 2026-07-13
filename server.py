@@ -1,5 +1,6 @@
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -11,8 +12,18 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from database import Database
 from fetcher import fetch_all_quotes
-from bank_fetcher import fetch_boc_rates, fetch_cmb_rates, fetch_ccb_rates, fetch_hzb_rates, fetch_boc_history
-from config import BANK_SPREADS, CURRENCY_PAIRS, DB_PATH
+from bank_fetcher import (
+    fetch_abc_rates,
+    fetch_boc_history,
+    fetch_boc_rates,
+    fetch_ccb_rates,
+    fetch_cmb_rates,
+    fetch_cmbc_rates,
+    fetch_hzb_rates,
+    fetch_icbc_rates,
+    fetch_psbc_rates,
+)
+from config import CURRENCY_PAIRS, DB_PATH
 
 # ── 初始化数据库 ──────────────────────────────────────────
 db = Database()
@@ -26,60 +37,74 @@ last_ccb_rates: dict = {}
 last_update: str = ""
 
 
+def _fetch_all_bank_rates():
+    fetchers = {
+        "中国银行": fetch_boc_rates,
+        "招商银行": fetch_cmb_rates,
+        "建设银行": fetch_ccb_rates,
+        "杭州银行": fetch_hzb_rates,
+        "工商银行": fetch_icbc_rates,
+        "农业银行": fetch_abc_rates,
+        "邮储银行": fetch_psbc_rates,
+        "民生银行": fetch_cmbc_rates,
+    }
+    results = {}
+    with ThreadPoolExecutor(max_workers=len(fetchers)) as pool:
+        futures = {bank: pool.submit(fetcher) for bank, fetcher in fetchers.items()}
+        for bank, future in futures.items():
+            try:
+                results[bank] = future.result() or {}
+            except Exception as exc:
+                print(f"{bank} fetch pipeline error: {exc}")
+                results[bank] = {}
+    return results
+
+
 def fetch_and_save():
     """定时抓取任务（和原来 main_window.py 逻辑一致）"""
     global cfets_cache, bank_cache, last_boc_rates, last_cmb_rates, last_ccb_rates, last_update
 
     cycle_id = datetime.now().isoformat()
     quotes = fetch_all_quotes() or {}
-    boc_rates = fetch_boc_rates() or {}
-    cmb_rates = fetch_cmb_rates() or {}
-    ccb_rates = fetch_ccb_rates() or {}
-    hzb_rates = fetch_hzb_rates() or {}
+    current_rates = _fetch_all_bank_rates()
     if not quotes:
         return
 
     db.save_market_quotes_batch(cycle_id, quotes, "CFETS")
 
-    # 更新银行牌价缓存（供实时报价展示用，本次成功才替换）
-    if boc_rates:
-        last_boc_rates = dict(boc_rates)
-    if cmb_rates:
-        last_cmb_rates = dict(cmb_rates)
-    if ccb_rates:
-        last_ccb_rates = dict(ccb_rates)
-    # 保存银行报价到数据库：只用真实数据，无数据时不保存
+    fetched_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for rates in current_rates.values():
+        for quote in rates.values():
+            quote["fetch_time"] = fetched_at
+
+    if current_rates["中国银行"]:
+        last_boc_rates = dict(current_rates["中国银行"])
+    if current_rates["招商银行"]:
+        last_cmb_rates = dict(current_rates["招商银行"])
+    if current_rates["建设银行"]:
+        last_ccb_rates = dict(current_rates["建设银行"])
+
     bank_data = []
-    for pair, data in quotes.items():
-        for bank in BANK_SPREADS:
-            if bank == "中国银行" and boc_rates and pair in boc_rates:
-                r = boc_rates[pair]
-                bank_data.append((bank, pair, r["bid"], r["ask"]))
-            elif bank == "招商银行" and cmb_rates and pair in cmb_rates:
-                r = cmb_rates[pair]
-                bank_data.append((bank, pair, r["bid"], r["ask"]))
-            elif bank == "建设银行" and ccb_rates and pair in ccb_rates:
-                r = ccb_rates[pair]
-                bank_data.append((bank, pair, r["bid"], r["ask"]))
-            elif bank == "杭州银行" and hzb_rates and pair in hzb_rates:
-                r = hzb_rates[pair]
-                bank_data.append((bank, pair, r["bid"], r["ask"]))
+    for bank, rates in current_rates.items():
+        for pair in quotes:
+            if pair in rates:
+                quote = rates[pair]
+                bank_data.append((bank, pair, quote["bid"], quote["ask"]))
     if bank_data:
         db.save_bank_quotes_batch(cycle_id, bank_data)
 
-    # 构建银行报价缓存（实时报价用，可缓存上次成功值）
-    bank_quotes_full: dict = {}
-    for bank, rates in [("中国银行", boc_rates or last_boc_rates), ("招商银行", cmb_rates or last_cmb_rates), ("建设银行", ccb_rates or last_ccb_rates), ("杭州银行", hzb_rates)]:
-        if rates:
-            bank_quotes_full[bank] = {}
-            for pair, r in rates.items():
-                bank_quotes_full[bank][pair] = r
+    display_rates = dict(current_rates)
+    display_rates["中国银行"] = current_rates["中国银行"] or last_boc_rates
+    display_rates["招商银行"] = current_rates["招商银行"] or last_cmb_rates
+    display_rates["建设银行"] = current_rates["建设银行"] or last_ccb_rates
+
+    bank_quotes_full = {bank: rates for bank, rates in display_rates.items() if rates}
 
     cfets_cache.clear()
     cfets_cache.update(quotes)
     bank_cache.clear()
     bank_cache.update(bank_quotes_full)
-    last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    last_update = fetched_at
 
 
 # ── 调度器 ────────────────────────────────────────────────
@@ -219,9 +244,10 @@ async def save_entry(
         compare_time = "当前实时"
 
     if bank_bid is None or bank_ask is None:
-        spread = BANK_SPREADS.get(bank, {"bid_offset": 0, "ask_offset": 0})
-        bank_bid = round(market_mid + spread["bid_offset"], 4)
-        bank_ask = round(market_mid + spread["ask_offset"], 4)
+        return {
+            "ok": False,
+            "error": f"{bank} {pair} 暂无真实银行报价，请等待下一次更新",
+        }
 
     market_cost = market_mid
 

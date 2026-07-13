@@ -1,6 +1,15 @@
 CURRENCY_PAIRS = ["USDCNY", "EURCNY", "HKDCNY", "JPYCNY"]
 
-BANKS = ["中国银行", "招商银行", "建设银行", "杭州银行"]
+BANKS = [
+    "中国银行",
+    "招商银行",
+    "建设银行",
+    "杭州银行",
+    "工商银行",
+    "农业银行",
+    "邮储银行",
+    "民生银行",
+]
 
 BANK_SPREADS = {
     "中国银行": {"bid_offset": -0.0020, "ask_offset": 0.0020},
