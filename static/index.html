@@ -36,7 +36,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .legend-ask{color:var(--ask)}
 
 /* ── Quote Matrix ── */
-.quotes{overflow-x:auto;padding-top:12px}
+.quotes{overflow-x:auto}
+.quotes{padding-top:12px}
 .quote-matrix{min-width:900px;background:var(--panel);border:1px solid var(--line-soft);overflow:visible}
 .quote-head,.source-row{display:grid;grid-template-columns:150px repeat(4,minmax(145px,1fr)) 100px;align-items:center}
 .quote-head{min-height:42px;background:var(--panel-raised);color:var(--muted);font-size:10px;border-bottom:1px solid var(--line);text-align:center}
@@ -67,7 +68,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .workspace-tabs{display:flex;align-items:center;gap:2px;padding:0 14px;background:var(--panel-raised);border-bottom:1px solid var(--line)}
 .tab-btn{appearance:none;min-width:120px;padding:14px 16px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;letter-spacing:.03em;cursor:pointer;transition:color .14s ease,background-color .14s ease,border-color .14s ease}
 .tab-btn:hover{color:var(--text);background:rgba(220,229,232,.03)}
-.tab-btn:focus-visible{outline:1px solid var(--accent);outline-offset:-3px}
 .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(86,216,179,.055)}
 .tab-content{padding:16px;min-height:330px}
 .tab-pane{display:none}
@@ -82,10 +82,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .field select,.field input{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--line);border-radius:2px;background:var(--page);color:var(--text);font:inherit;font-size:13px;outline:none}
 .field select:focus,.field input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(86,216,179,.08)}
 .field input::placeholder{color:var(--muted)}
+:is(button,select,input):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .form-actions{grid-column:1/-1;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-top:2px}
 .btn{appearance:none;min-height:38px;padding:8px 17px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--page);font:inherit;font-size:12px;font-weight:750;cursor:pointer;transition:background-color .14s ease,color .14s ease}
 .btn:hover{background:#70e2c1}
-.btn:focus-visible{outline:1px solid var(--text);outline-offset:2px}
 .btn-secondary{border-color:var(--line);background:transparent;color:var(--text)}
 .btn-secondary:hover{border-color:var(--muted);background:rgba(220,229,232,.04)}
 .result-card{min-height:92px;margin-top:14px;padding:13px 14px;border:1px solid var(--line);border-left:2px solid var(--accent);background:var(--panel);color:var(--muted);font-size:12px;line-height:1.65}
@@ -106,22 +106,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 
 /* ── Chart ── */
 .chart-heading{margin-bottom:14px}
-.chart-controls{grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 14px}
-#chart{width:100%;height:400px}
-@media(max-width:600px){#chart{height:300px}}
+.chart-controls{grid-template-columns:160px minmax(220px,320px) 170px;gap:12px;align-items:end;margin:0 0 14px}
+#chart{width:100%;height:440px;border:1px solid var(--line-soft);border-radius:10px;overflow:hidden}
 
 /* ── Loading ── */
 .loading{text-align:center;padding:40px;color:#666;font-size:14px}
 
 /* ── Responsive ── */
+@media(max-width:860px){
+  .entry-layout{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chart-controls{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
 @media(max-width:640px){
-  .app-shell{width:min(calc(100% - 20px),1400px);padding-top:10px}
+  .app-shell{width:calc(100% - 16px);margin:12px auto 24px;padding:0}
   .terminal-header{align-items:flex-start;flex-direction:column}
-  .terminal-state{align-items:flex-start}
-  .panel-heading{align-items:flex-start;flex-direction:column;padding:12px 0}
-  .quote-matrix{min-width:900px}
-  .quote-head,.source-row{grid-template-columns:130px repeat(4,minmax(145px,1fr)) 90px}
-  .source-name{padding-left:8px}
+  .live-meta{width:100%;align-items:center;flex-direction:row;justify-content:space-between}
+  .panel-heading{min-height:0;padding:10px 0}
+  .quote-matrix{min-width:820px}
+  .quote-head,.source-row{grid-template-columns:108px repeat(4,minmax(142px,1fr)) 86px}
+  .tab-content{padding:10px}
+  .entry-layout{grid-template-columns:1fr}
+  .entry-panel,.recent-panel{padding:14px}
+  .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .field-wide{grid-column:span 2}
+  .chart-controls{grid-template-columns:1fr}
+  #chart{height:330px}
 }
 </style>
 </head>
@@ -137,7 +147,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
       <p>FOREIGN EXCHANGE MONITOR</p>
     </div>
   </div>
-  <div class="terminal-state">
+  <div class="terminal-state live-meta">
     <div class="live-status"><span class="status-dot" aria-hidden="true"></span><span>实时采集中</span></div>
     <span class="update-time" id="updateTime">最后更新 --</span>
   </div>
@@ -249,6 +259,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 <script>
 // ── 全局状态 ──
 let chartInstance = null;
+window.addEventListener('resize', () => { if (chartInstance) chartInstance.resize(); });
 
 // ── Tab 切换 ──
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -368,10 +379,10 @@ async function fetchQuotes() {
 
 // ── 图表 ──
 const LINE_STYLE = [
-  {name:'银行卖价', color:'#ef4444', width:1.5},
-  {name:'银行成本', color:'#f59e0b', width:1.5, type:'dashed'},
-  {name:'市场成本', color:'#9ca3af', width:1.5},
-  {name:'银行买价', color:'#22c55e', width:1.5},
+  {name:'银行卖价', color:'#ff857a', width:1.5},
+  {name:'银行成本', color:'#d8a84e', width:1.5, type:'dashed'},
+  {name:'市场成本', color:'#98a6ae', width:1.5},
+  {name:'银行买价', color:'#56d8b3', width:1.5},
 ];
 
 async function loadChart() {
@@ -409,34 +420,34 @@ function renderChart(data) {
   const sources = data.sources || [];
 
   const series = [
-    {name:'银行卖价', data:data.asks, color:'#ef4444'},
-    {name:'银行成本', data:data.costs, color:'#f59e0b'},
-    {name:'市场成本', data:data.mids, color:'#9ca3af'},
-    {name:'银行买价', data:data.bids, color:'#22c55e'},
-  ].map((s, i) => ({
-    name: s.name,
+    {name:'银行卖价', data:data.asks, color:'#ff857a'},
+    {name:'银行成本', data:data.costs, color:'#d8a84e'},
+    {name:'市场成本', data:data.mids, color:'#98a6ae'},
+    {name:'银行买价', data:data.bids, color:'#56d8b3'},
+  ].map((seriesItem, i) => ({
+    name: seriesItem.name,
     type: 'line',
-    data: s.data,
+    data: seriesItem.data,
     connectNulls: true,
     smooth: false,
     symbol: 'circle',
     symbolSize: 2,
-    lineStyle: { width: LINE_STYLE[i].width, type: LINE_STYLE[i].type || 'solid' },
-    itemStyle: { color: s.color },
+    lineStyle: { color: seriesItem.color, width: LINE_STYLE[i].width, type: LINE_STYLE[i].type || 'solid' },
+    itemStyle: { color: seriesItem.color },
   }));
 
   chartInstance.setOption({
-    backgroundColor: '#1a1a2e',
-    grid: { left: 50, right: 16, top: 30, bottom: 28 },
+    backgroundColor: '#0e1620',
+    grid: { left: 54, right: 18, top: 38, bottom: 32 },
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(26,26,46,0.95)',
-      borderColor: '#444',
-      textStyle: { color: '#ccc', fontSize: 12 },
+      backgroundColor: 'rgba(14,22,32,.96)',
+      borderColor: '#2a3b47',
+      textStyle: { color: '#dce5e8', fontSize: 12 },
       formatter: function(params) {
         const time = params[0].axisValue;
         let html = '<div>' + time + '</div>';
-        const colors = ['#ef4444','#f59e0b','#9ca3af','#22c55e'];
+        const colors = ['#ff857a','#d8a84e','#98a6ae','#56d8b3'];
         const names = ['银行卖价','银行成本','市场成本','银行买价'];
         for (let i = 0; i < params.length; i++) {
           if (params[i].value != null) {
@@ -444,8 +455,8 @@ function renderChart(data) {
             if (i === 2 && sources.length > 0) {
               const idx = data.times.indexOf(time);
               const src = idx >= 0 && idx < sources.length ? sources[idx] : '';
-              if (src === '精确') label += ' <span style="color:#22c55e">●</span>';
-              else if (src === '推导') label += ' <span style="color:#f59e0b">○</span>';
+              if (src === '精确') label += ' <span style="color:#56d8b3">●</span>';
+              else if (src === '推导') label += ' <span style="color:#d8a84e">○</span>';
             }
             html += '<div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + colors[i] + ';margin-right:6px;"></span>'
               + label + ' ' + params[i].value.toFixed(4) + '</div>';
@@ -456,22 +467,22 @@ function renderChart(data) {
     },
     legend: {
       data: ['银行卖价','银行成本','市场成本','银行买价'],
-      textStyle: { color: '#aaa', fontSize: 10 },
-      top: 2,
+      textStyle: { color: '#91a1a8', fontSize: 10 },
+      top: 8,
     },
     xAxis: {
       type: 'category',
       data: data.times,
-      axisLine: { lineStyle: { color: '#333' } },
-      axisLabel: { color: '#888', fontSize: 10 },
-      splitLine: { show: true, lineStyle: { color: '#2a2a3e', width: 0.5 } },
+      axisLine: { lineStyle: { color: '#2c3b46' } },
+      axisLabel: { color: '#7f9098', fontSize: 10 },
+      splitLine: { show: true, lineStyle: { color: '#192833', width: 0.5 } },
     },
     yAxis: {
       type: 'value',
       scale: true,
-      axisLine: { lineStyle: { color: '#333' } },
-      axisLabel: { color: '#888', fontSize: 10, formatter: function(v) { return v.toFixed(4); } },
-      splitLine: { show: true, lineStyle: { color: '#2a2a3e', width: 0.5 } },
+      axisLine: { lineStyle: { color: '#2c3b46' } },
+      axisLabel: { color: '#7f9098', fontSize: 10, formatter: function(v) { return v.toFixed(4); } },
+      splitLine: { show: true, lineStyle: { color: '#192833', width: 0.5 } },
     },
     series: series,
     dataZoom: [
@@ -480,7 +491,6 @@ function renderChart(data) {
   });
 
   chartInstance.on('click', function() {});
-  window.addEventListener('resize', () => { if (chartInstance) chartInstance.resize(); });
 }
 
 // ── 录入报价 ──

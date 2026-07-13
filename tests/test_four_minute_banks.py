@@ -571,6 +571,37 @@ class MockFragment extends MockNode {
         for emoji in ["🔄", "📝", "📊", "📋"]:
             self.assertNotIn(emoji, self.html)
 
+    def test_chart_uses_terminal_palette_and_one_resize_listener(self):
+        for marker in [
+            "{name:'银行卖价', color:'#ff857a'",
+            "{name:'银行成本', color:'#d8a84e'",
+            "{name:'市场成本', color:'#98a6ae'",
+            "{name:'银行买价', color:'#56d8b3'",
+            "backgroundColor: '#0e1620'",
+            "backgroundColor: 'rgba(14,22,32,.96)'",
+        ]:
+            self.assertIn(marker, self.html)
+
+        resize_listener = "window.addEventListener('resize'"
+        self.assertEqual(self.html.count(resize_listener), 1)
+        chart_state = self.html.index("let chartInstance = null;")
+        listener_position = self.html.index(resize_listener)
+        render_chart = self.html.index("function renderChart(data)")
+        self.assertLess(chart_state, listener_position)
+        self.assertLess(listener_position, render_chart)
+
+    def test_focus_and_mobile_layout_keep_scroll_inside_quote_matrix(self):
+        for marker in [
+            ":focus-visible",
+            "overflow-x:hidden",
+            ".quotes{overflow-x:auto}",
+            "@media(max-width:640px)",
+            ".entry-layout{grid-template-columns:1fr}",
+            ".app-shell{width:calc(100% - 16px)",
+        ]:
+            self.assertIn(marker, self.html)
+        self.assertEqual(self.html.count("overflow-x:auto"), 1)
+
     def test_entry_and_chart_selectors_contain_new_banks(self):
         for bank in ["工商银行", "农业银行", "邮储银行", "民生银行"]:
             self.assertEqual(self.html.count(f"<option>{bank}</option>"), 2)
