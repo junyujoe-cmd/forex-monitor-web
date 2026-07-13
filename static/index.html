@@ -254,13 +254,11 @@ let chartInstance = null;
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => {
-      b.classList.remove('active');
-      b.setAttribute('aria-selected', 'false');
+      const active = b === btn;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-selected', String(active));
+      document.getElementById('tab-' + b.dataset.tab).classList.toggle('active', active);
     });
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    btn.setAttribute('aria-selected', 'true');
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
     if (btn.dataset.tab === 'chart') setTimeout(() => { if (chartInstance) chartInstance.resize(); else loadChart(); }, 50);
   });
 });

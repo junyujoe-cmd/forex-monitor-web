@@ -481,6 +481,22 @@ class QuoteMatrixFrontendTests(unittest.TestCase):
     def setUpClass(cls):
         cls.html = (Path(__file__).parents[1] / "static" / "index.html").read_text()
 
+    @staticmethod
+    def run_node_json(script):
+        result = subprocess.run(
+            [NODE_BINARY, "-e", script],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(result.stdout)
+
+    @classmethod
+    def function_source(cls, signature):
+        start = cls.html.index(signature)
+        end = cls.html.index("\n}\n", start) + 3
+        return cls.html[start:end]
+
     def test_matrix_contains_all_nine_sources(self):
         expected = [
             "CFETS", "中国银行", "招商银行", "建设银行", "杭州银行",
@@ -514,33 +530,309 @@ class QuoteMatrixFrontendTests(unittest.TestCase):
             self.assertEqual(self.html.count(f"<option>{bank}</option>"), 2)
 
     def test_entry_workspace_has_professional_structure_and_live_regions(self):
+        self.assertRegex(
+            self.html,
+            r'<nav(?=[^>]*class="workspace-tabs")(?=[^>]*role="tablist")[^>]*>',
+        )
+        self.assertRegex(
+            self.html,
+            r'<button(?=[^>]*class="[^"]*tab-btn[^"]*")(?=[^>]*role="tab")'
+            r'(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="tab-entry")'
+            r'(?=[^>]*data-tab="entry")[^>]*>录入报价</button>',
+        )
+        self.assertRegex(
+            self.html,
+            r'<button(?=[^>]*class="[^"]*tab-btn[^"]*")(?=[^>]*role="tab")'
+            r'(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="tab-chart")'
+            r'(?=[^>]*data-tab="chart")[^>]*>历史图表</button>',
+        )
+        self.assertRegex(
+            self.html,
+            r'<div(?=[^>]*class="recent-list")(?=[^>]*id="entryRecent")'
+            r'(?=[^>]*role="status")(?=[^>]*aria-live="polite")[^>]*>',
+        )
         for marker in [
-            'class="workspace-tabs"',
-            'class="entry-layout"',
-            'class="entry-panel"',
-            'class="recent-panel"',
-            'class="field"',
-            'class="result-card"',
-            'aria-live="polite"',
-            'role="status"',
-            'type="date" id="entryDate"',
-            'type="time" id="entryTime"',
-            '>现在</button>',
+            'class="entry-layout"', 'class="entry-panel"',
+            'class="recent-panel"', 'class="field"',
+            'class="result-card"', 'type="date" id="entryDate"',
+            'type="time" id="entryTime"', '>现在</button>',
         ]:
             self.assertIn(marker, self.html)
         self.assertNotIn('id="entryDate" style=', self.html)
         self.assertNotIn('id="entryTime" style=', self.html)
+        self.assertIn(
+            "setAttribute('aria-selected', String(active))",
+            self.html,
+        )
+
+        if not NODE_BINARY:
+            self.skipTest("Node.js is required for dynamic frontend rendering")
+        tab_start = self.html.index("document.querySelectorAll('.tab-btn')")
+        tab_end = self.html.index("// ── 报价栏渲染 ──", tab_start)
+        tab_script = self.html[tab_start:tab_end]
+        result = self.run_node_json("""
+function makeClassList(initial) {
+  const classes = new Set(initial);
+  return {
+    add(name) { classes.add(name); },
+    remove(name) { classes.delete(name); },
+    toggle(name, force) {
+      if (force) classes.add(name); else classes.delete(name);
+      return classes.has(name);
+    },
+    contains(name) { return classes.has(name); }
+  };
+}
+function makeButton(tab, isActive, selected) {
+  return {
+    dataset: { tab },
+    attributes: { 'aria-selected': selected },
+    listeners: {},
+    classList: makeClassList(isActive ? ['active'] : []),
+    addEventListener(type, listener) { this.listeners[type] = listener; },
+    setAttribute(name, value) { this.attributes[name] = value; }
+  };
+}
+const entryButton = makeButton('entry', true, 'true');
+const chartButton = makeButton('chart', false, 'false');
+const buttons = [entryButton, chartButton];
+const panes = {
+  'tab-entry': { classList: makeClassList(['active']) },
+  'tab-chart': { classList: makeClassList([]) }
+};
+const document = {
+  querySelectorAll(selector) {
+    if (selector === '.tab-btn') return buttons;
+    if (selector === '.tab-pane') return Object.values(panes);
+    throw new Error('unexpected selector: ' + selector);
+  },
+  getElementById(id) { return panes[id]; }
+};
+let chartInstance = { resize() {} };
+const setTimeout = callback => callback();
+""" + tab_script + """
+chartButton.listeners.click();
+process.stdout.write(JSON.stringify({
+  entryButton: {
+    active: entryButton.classList.contains('active'),
+    selected: entryButton.attributes['aria-selected']
+  },
+  chartButton: {
+    active: chartButton.classList.contains('active'),
+    selected: chartButton.attributes['aria-selected']
+  },
+  entryPaneActive: panes['tab-entry'].classList.contains('active'),
+  chartPaneActive: panes['tab-chart'].classList.contains('active')
+}));
+""")
+        self.assertEqual(result, {
+            "entryButton": {"active": False, "selected": "false"},
+            "chartButton": {"active": True, "selected": "true"},
+            "entryPaneActive": False,
+            "chartPaneActive": True,
+        })
 
     def test_loading_and_request_failures_are_inline_and_retryable(self):
-        for marker in [
-            'function renderQuoteSkeleton()',
-            'function showInlineError(containerId, message)',
-            '报价暂时无法获取，系统将在下一轮自动重试',
-            '最近录入暂时无法获取，请稍后重试',
-            '图表暂时无法获取，请稍后重试',
+        for signature in [
+            "async function fetchQuotes()",
+            "async function loadChart()",
+            "async function loadEntries()",
         ]:
-            self.assertIn(marker, self.html)
+            source = self.function_source(signature)
+            self.assertIn("if (!res.ok) throw new Error(", source)
+            self.assertIn("res.status", source)
+        self.assertEqual(self.html.count("renderQuoteSkeleton();"), 1)
+        skeleton_call = self.html.index("renderQuoteSkeleton();")
+        self.assertLess(skeleton_call, self.html.index("fetchQuotes();", skeleton_call))
+        self.assertEqual(self.html.count("setInterval("), 2)
         self.assertNotIn('alert(', self.html)
+
+        if not NODE_BINARY:
+            self.skipTest("Node.js is required for dynamic frontend rendering")
+        behavior_start = self.html.index('const PAIRS = ["USDCNY"')
+        behavior_end = self.html.index("function renderChart(data)", behavior_start)
+        entries_start = self.html.index("async function loadEntries()")
+        entries_end = self.html.index("// ── 日期选择器初始化为今天 ──", entries_start)
+        behavior_script = self.html[behavior_start:behavior_end] + self.html[entries_start:entries_end]
+        result = self.run_node_json("""
+class MockNode {
+  constructor(tagName = 'div') {
+    this.tagName = tagName;
+    this.className = '';
+    this.attributes = {};
+    this.children = [];
+    this.value = '';
+    this._innerHTML = '';
+    this._textContent = '';
+    this.innerHTMLWrites = 0;
+    this.textContentWrites = 0;
+    this.replaceChildrenCalls = 0;
+    this.isFragment = false;
+  }
+  set innerHTML(value) {
+    this._innerHTML = String(value);
+    this.innerHTMLWrites += 1;
+    this.children = [];
+  }
+  get innerHTML() { return this._innerHTML; }
+  set textContent(value) {
+    this._textContent = String(value);
+    this.textContentWrites += 1;
+    this.children = [];
+  }
+  get textContent() { return this._textContent; }
+  setAttribute(name, value) { this.attributes[name] = String(value); }
+  append(...nodes) { this.children.push(...nodes); }
+  replaceChildren(...nodes) {
+    this.replaceChildrenCalls += 1;
+    this.children = [];
+    nodes.forEach(node => {
+      if (node && node.isFragment) this.children.push(...node.children);
+      else if (node) this.children.push(node);
+    });
+  }
+}
+class MockFragment extends MockNode {
+  constructor() {
+    super('fragment');
+    this.isFragment = true;
+  }
+}
+const elements = {
+  quotesContainer: new MockNode(),
+  updateTime: new MockNode(),
+  chart: new MockNode(),
+  chartPair: Object.assign(new MockNode('select'), { value: 'USDCNY' }),
+  chartBank: Object.assign(new MockNode('select'), { value: '中国银行' }),
+  chartDate: Object.assign(new MockNode('input'), { value: '2026-07-13' }),
+  entryRecent: new MockNode(),
+  scratch: new MockNode()
+};
+const document = {
+  getElementById(id) { return elements[id]; },
+  createElement(tagName) { return new MockNode(tagName); },
+  createDocumentFragment() { return new MockFragment(); }
+};
+let fetchMode = 'failure';
+const fetch = async url => {
+  if (fetchMode === 'entries-success' && url.startsWith('/api/entries')) {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        entries: [{
+          time: '<time>12:30</time>',
+          pair: '<img src=x>',
+          bank: '<b>银行</b>',
+          direction: '<script>x</script>',
+          quote: 6.77,
+          bp_vs_market: 12.3
+        }]
+      })
+    };
+  }
+  return { ok: false, status: 503, json: async () => ({}) };
+};
+const console = { error() {} };
+let chartDisposed = false;
+let chartInstance = { dispose() { chartDisposed = true; } };
+""" + behavior_script + """
+function errorState(container) {
+  const error = container.children[0];
+  return {
+    className: error.className,
+    role: error.attributes.role,
+    live: error.attributes['aria-live'],
+    text: error.textContent,
+    innerHTMLWrites: error.innerHTMLWrites,
+    replaceChildrenCalls: container.replaceChildrenCalls
+  };
+}
+(async () => {
+  renderQuoteSkeleton();
+  const skeleton = elements.quotesContainer.innerHTML;
+  const skeletonState = {
+    rows: (skeleton.match(/class="source-row"/g) || []).length,
+    cells: (skeleton.match(/class="quote-cell"/g) || []).length,
+    status: skeleton.includes('role="status"'),
+    live: skeleton.includes('aria-live="polite"')
+  };
+
+  showInlineError('scratch', '<strong>failure</strong>');
+  const directError = errorState(elements.scratch);
+  await fetchQuotes();
+  const quoteError = errorState(elements.quotesContainer);
+  await loadChart();
+  const chartError = errorState(elements.chart);
+  await loadEntries();
+  const entriesError = errorState(elements.entryRecent);
+
+  fetchMode = 'entries-success';
+  await loadEntries();
+  const entry = elements.entryRecent.children[0];
+  const main = entry.children[0];
+  const meta = entry.children[1];
+  process.stdout.write(JSON.stringify({
+    skeletonState,
+    directError,
+    quoteError,
+    chartError,
+    chartDisposed,
+    chartInstanceIsNull: chartInstance === null,
+    entriesError,
+    entry: {
+      className: entry.className,
+      mainClassName: main.className,
+      mainText: main.textContent,
+      mainTextWrites: main.textContentWrites,
+      mainInnerHTMLWrites: main.innerHTMLWrites,
+      metaClassName: meta.className,
+      metaText: meta.textContent,
+      metaTextWrites: meta.textContentWrites,
+      metaInnerHTMLWrites: meta.innerHTMLWrites
+    }
+  }));
+})().catch(error => {
+  process.stderr.write(error.stack + '\\n');
+  process.exit(1);
+});
+""")
+        self.assertEqual(result["skeletonState"], {
+            "rows": 9, "cells": 36, "status": True, "live": True,
+        })
+        self.assertEqual(result["directError"], {
+            "className": "inline-state inline-error",
+            "role": "status",
+            "live": "polite",
+            "text": "<strong>failure</strong>",
+            "innerHTMLWrites": 0,
+            "replaceChildrenCalls": 1,
+        })
+        self.assertEqual(
+            result["quoteError"]["text"],
+            "报价暂时无法获取，系统将在下一轮自动重试",
+        )
+        self.assertEqual(
+            result["chartError"]["text"],
+            "图表暂时无法获取，请稍后重试",
+        )
+        self.assertTrue(result["chartDisposed"])
+        self.assertTrue(result["chartInstanceIsNull"])
+        self.assertEqual(
+            result["entriesError"]["text"],
+            "最近录入暂时无法获取，请稍后重试",
+        )
+        self.assertEqual(result["entry"]["className"], "recent-entry")
+        self.assertEqual(result["entry"]["mainClassName"], "recent-entry-main")
+        self.assertEqual(
+            result["entry"]["mainText"],
+            "<img src=x> · <b>银行</b>",
+        )
+        self.assertIn("<script>x</script>", result["entry"]["metaText"])
+        self.assertGreater(result["entry"]["mainTextWrites"], 0)
+        self.assertGreater(result["entry"]["metaTextWrites"], 0)
+        self.assertEqual(result["entry"]["mainInnerHTMLWrites"], 0)
+        self.assertEqual(result["entry"]["metaInnerHTMLWrites"], 0)
 
     def test_matrix_has_no_repeated_midpoint_cost_line(self):
         self.assertNotIn("pair-card .costs", self.html)
