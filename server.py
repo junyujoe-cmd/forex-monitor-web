@@ -35,6 +35,7 @@ last_boc_rates: dict = {}   # 最近一次成功的银行牌价，抓取失败�
 last_cmb_rates: dict = {}
 last_ccb_rates: dict = {}
 last_update: str = ""
+CURRENT_ONLY_BANKS = ("杭州银行", "工商银行", "农业银行", "邮储银行", "民生银行")
 
 
 def _fetch_all_bank_rates():
@@ -68,11 +69,9 @@ def fetch_and_save():
     quotes = fetch_all_quotes() or {}
     current_rates = _fetch_all_bank_rates()
     if not quotes:
-        for bank in ("杭州银行", "工商银行", "农业银行", "邮储银行", "民生银行"):
+        for bank in CURRENT_ONLY_BANKS:
             bank_cache.pop(bank, None)
         return
-
-    db.save_market_quotes_batch(cycle_id, quotes, "CFETS")
 
     fetched_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for rates in current_rates.values():
@@ -92,8 +91,14 @@ def fetch_and_save():
             if pair in rates:
                 quote = rates[pair]
                 bank_data.append((bank, pair, quote["bid"], quote["ask"]))
-    if bank_data:
-        db.save_bank_quotes_batch(cycle_id, bank_data)
+    try:
+        db.save_market_quotes_batch(cycle_id, quotes, "CFETS")
+        if bank_data:
+            db.save_bank_quotes_batch(cycle_id, bank_data)
+    except Exception:
+        for bank in CURRENT_ONLY_BANKS:
+            bank_cache.pop(bank, None)
+        raise
 
     display_rates = dict(current_rates)
     display_rates["中国银行"] = current_rates["中国银行"] or last_boc_rates
