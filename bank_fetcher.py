@@ -1,7 +1,9 @@
 import json
 import math
+import ssl
 import time
 import requests
+from requests.adapters import HTTPAdapter
 import pandas as pd
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
@@ -258,12 +260,41 @@ MINUTE_BANK_CURRENCY_MAP = {
     "JPY": "JPYCNY",
 }
 
+LEGACY_TLS_ORIGINS = (
+    "https://papi.icbc.com.cn/",
+    "https://s.psbc.com/",
+)
+MAX_FUTURE_CLOCK_SKEW = timedelta(seconds=30)
+
+
+class _LegacyTLSAdapter(HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        context = ssl.create_default_context()
+        # Python 3.11 does not expose this OpenSSL option as a named constant.
+        context.options |= getattr(ssl, "OP_LEGACY_SERVER_CONNECT", 0x4)
+        kwargs["ssl_context"] = context
+        return super().init_poolmanager(*args, **kwargs)
+
+
+def _legacy_tls_request(method, url, **kwargs):
+    origin = next((item for item in LEGACY_TLS_ORIGINS if url.startswith(item)), None)
+    if origin is None:
+        raise ValueError("legacy TLS is only allowed for ICBC and PSBC")
+    session = requests.Session()
+    session.mount(origin, _LegacyTLSAdapter())
+    try:
+        return session.request(method, url, **kwargs)
+    finally:
+        session.close()
+
 
 def _normalize_minute_rate(bid_raw, ask_raw, source_time, divisor=1):
     """校验官方时间和价格，并统一为页面使用的报价格式。"""
     try:
         now = datetime.now(source_time.tzinfo) if source_time.tzinfo else datetime.now()
         if now - source_time > timedelta(minutes=3):
+            return None
+        if source_time - now > MAX_FUTURE_CLOCK_SKEW:
             return None
         bid = float(bid_raw) / divisor
         ask = float(ask_raw) / divisor
@@ -284,7 +315,8 @@ def _normalize_minute_rate(bid_raw, ask_raw, source_time, divisor=1):
 def fetch_icbc_rates():
     """从工商银行官方接口获取分钟级外汇牌价。"""
     try:
-        resp = requests.post(
+        resp = _legacy_tls_request(
+            "POST",
             "https://papi.icbc.com.cn/exchanges/ns/getLatest",
             headers={"User-Agent": "Mozilla/5.0"},
             timeout=10,
@@ -335,6 +367,7 @@ def fetch_abc_rates():
     try:
         resp = requests.get(
             "https://www.abchina.com.cn/creditCardService/DataService/ExchangeRate",
+            params={"_": int(time.time() * 1000)},
             headers={"User-Agent": "Mozilla/5.0"},
             timeout=10,
         )
@@ -375,7 +408,8 @@ def fetch_abc_rates():
 def fetch_psbc_rates():
     """从邮储银行官方 JSONP 接口获取分钟级外汇牌价。"""
     try:
-        resp = requests.get(
+        resp = _legacy_tls_request(
+            "GET",
             "https://s.psbc.com/portal/PsbcService/foreignexchange/curr?callback=cb",
             headers={"User-Agent": "Mozilla/5.0"},
             timeout=10,
