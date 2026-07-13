@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import shutil
 import sqlite3
 import ssl
@@ -508,6 +509,7 @@ class MockNode {
   append(...nodes) { this.children.push(...nodes); }
   replaceChildren(...nodes) {
     this.replaceChildrenCalls += 1;
+    this._innerHTML = '';
     this.children = [];
     nodes.forEach(node => {
       if (node && node.isFragment) this.children.push(...node.children);
@@ -576,102 +578,231 @@ class MockFragment extends MockNode {
             "const LINE_STYLE = [",
             "async function loadChart()",
         )
-        for style in [
-            "name:'银行卖价', color:'#ff857a'",
-            "name:'银行成本', color:'#d8a84e'",
-            "name:'市场成本', color:'#98a6ae'",
-            "name:'银行买价', color:'#56d8b3'",
-        ]:
-            self.assertIn(style, line_style_source)
-        bank_cost_style = next(
-            line for line in line_style_source.splitlines()
-            if "name:'银行成本'" in line
+        expected_styles = [
+            ("银行卖价", "#ff857a"),
+            ("银行成本", "#d8a84e"),
+            ("市场成本", "#98a6ae"),
+            ("银行买价", "#56d8b3"),
+        ]
+        for name, color in expected_styles:
+            self.assertRegex(
+                line_style_source,
+                rf"name\s*:\s*['\"]{name}['\"][^}}\n]*"
+                rf"color\s*:\s*['\"]{color}['\"]",
+            )
+        self.assertRegex(
+            line_style_source,
+            r"name\s*:\s*['\"]银行成本['\"][^}\n]*"
+            r"type\s*:\s*['\"]dashed['\"]",
         )
-        self.assertIn("type:'dashed'", bank_cost_style)
 
-        render_chart_source = self.extract_js(
-            "function renderChart(data)",
+        state_source = self.extract_js(
+            "// ── 全局状态 ──",
+            "// ── Tab 切换 ──",
+        )
+        chart_source = self.extract_js(
+            "const LINE_STYLE = [",
             "// ── 录入报价 ──",
         )
-        series_start = render_chart_source.index("const series = [")
-        option_start = render_chart_source.index("chartInstance.setOption({")
-        series_source = render_chart_source[series_start:option_start]
-        option_source = render_chart_source[option_start:]
-        for series_item in [
-            "{name:'银行卖价', data:data.asks, color:'#ff857a'}",
-            "{name:'银行成本', data:data.costs, color:'#d8a84e'}",
-            "{name:'市场成本', data:data.mids, color:'#98a6ae'}",
-            "{name:'银行买价', data:data.bids, color:'#56d8b3'}",
-        ]:
-            self.assertIn(series_item, series_source)
-        series_line_start = series_source.index("lineStyle: {")
-        series_line_end = series_source.index("}", series_line_start)
-        series_line_style = series_source[series_line_start:series_line_end]
-        self.assertIn("color: seriesItem.color", series_line_style)
-        self.assertIn("type: LINE_STYLE[i].type || 'solid'", series_line_style)
-        self.assertIn("itemStyle: { color: seriesItem.color }", series_source)
-
-        self.assertIn("backgroundColor: '#0e1620'", option_source)
-
-        tooltip_start = option_source.index("tooltip: {")
-        legend_start = option_source.index("legend: {")
-        x_axis_start = option_source.index("xAxis: {")
-        tooltip_source = option_source[tooltip_start:legend_start]
-        legend_source = option_source[legend_start:x_axis_start]
-        for tooltip_option in [
-            "backgroundColor: 'rgba(14,22,32,.96)'",
-            "borderColor: '#2a3b47'",
-            "textStyle: { color: '#dce5e8', fontSize: 12 }",
-            "const colors = ['#ff857a','#d8a84e','#98a6ae','#56d8b3'];",
-            "if (src === '精确') label += ' <span style=\"color:#56d8b3\">●</span>';",
-            "else if (src === '推导') label += ' <span style=\"color:#d8a84e\">○</span>';",
-        ]:
-            self.assertIn(tooltip_option, tooltip_source)
-        self.assertIn("textStyle: { color: '#91a1a8', fontSize: 10 }", legend_source)
-
-        y_axis_start = option_source.index("yAxis: {")
-        series_option_start = option_source.index("series: series")
-        x_axis_source = option_source[x_axis_start:y_axis_start]
-        y_axis_source = option_source[y_axis_start:series_option_start]
-        for axis_source in [x_axis_source, y_axis_source]:
-            self.assertIn(
-                "axisLine: { lineStyle: { color: '#2c3b46' } }",
-                axis_source,
-            )
-            self.assertIn("axisLabel: { color: '#7f9098'", axis_source)
-            self.assertIn(
-                "splitLine: { show: true, lineStyle: { color: '#192833', "
-                "width: 0.5 } }",
-                axis_source,
-            )
-        self.assertIn("formatter: function(v) { return v.toFixed(4); }", y_axis_source)
-        self.assertIn(
-            "dataZoom: [\n"
-            "      { type: 'inside', start: 0, end: 100 },\n"
-            "    ]",
-            option_source,
+        render_chart_source = chart_source[chart_source.index("function renderChart(data)"):]
+        for field in ["asks", "costs", "mids", "bids"]:
+            self.assertRegex(render_chart_source, rf"data\s*:\s*data\.{field}")
+        resize_pattern = (
+            r"window\s*\.\s*addEventListener\s*\(\s*['\"]resize['\"]"
         )
-
-        resize_listener = "window.addEventListener('resize'"
-        self.assertEqual(self.html.count(resize_listener), 1)
-        self.assertIn(
-            "let chartInstance = null;\n"
-            "window.addEventListener('resize', () => { if (chartInstance) "
-            "chartInstance.resize(); });",
-            self.html,
+        self.assertEqual(len(re.findall(resize_pattern, self.html)), 1)
+        self.assertRegex(
+            state_source,
+            r"(?:let|const|var)\s+\w+\s*=\s*null\s*;\s*" + resize_pattern,
         )
-        self.assertNotIn(resize_listener, render_chart_source)
+        self.assertNotRegex(render_chart_source, resize_pattern)
+
+        if not NODE_BINARY:
+            self.skipTest("Node.js is required for chart lifecycle behavior")
+
+        error_source = self.extract_js(
+            "function showInlineError(containerId, message)",
+            "function renderQuotes(cfets, banks, timestamp)",
+        )
+        result = self.run_node_json(self.NODE_DOM_PRELUDE + """
+const elements = {
+  chart: new MockNode(),
+  chartPair: Object.assign(new MockNode('select'), { value: 'USDCNY' }),
+  chartBank: Object.assign(new MockNode('select'), { value: '中国银行' }),
+  chartDate: Object.assign(new MockNode('input'), { value: '2026-07-13' })
+};
+const document = {
+  getElementById(id) { return elements[id]; },
+  createElement(tagName) { return new MockNode(tagName); }
+};
+const listeners = {};
+const window = {
+  addEventListener(type, listener) {
+    if (!listeners[type]) listeners[type] = [];
+    listeners[type].push(listener);
+  }
+};
+const chartInstances = [];
+const echarts = {
+  init(dom) {
+    const instance = {
+      disposed: false,
+      option: null,
+      resizeCalls: 0,
+      setOption(option) { this.option = option; },
+      on() {},
+      resize() { this.resizeCalls += 1; },
+      dispose() { this.disposed = true; }
+    };
+    chartInstances.push(instance);
+    return instance;
+  }
+};
+const chartData = {
+  times: ['10:00'],
+  asks: [6.8000],
+  costs: [6.7900],
+  mids: [6.7800],
+  bids: [6.7700],
+  sources: ['精确']
+};
+let fetchMode = 'failure';
+const fetch = async () => fetchMode === 'failure'
+  ? { ok: false, status: 503, json: async () => ({}) }
+  : { ok: true, status: 200, json: async () => chartData };
+const console = { error() {} };
+""" + state_source + error_source + chart_source + """
+(async () => {
+  renderChart(chartData);
+  const first = chartInstances[0];
+  const firstSeries = first.option.series.map(item => ({
+    name: item.name,
+    data: item.data,
+    lineColor: item.lineStyle.color,
+    itemColor: item.itemStyle.color,
+    type: item.lineStyle.type
+  }));
+  const tooltipText = first.option.tooltip.formatter([
+    { axisValue: '10:00', value: 6.8000 },
+    { axisValue: '10:00', value: 6.7900 },
+    { axisValue: '10:00', value: 6.7800 },
+    { axisValue: '10:00', value: 6.7700 }
+  ]);
+
+  renderChart(chartData);
+  const second = chartInstances[1];
+  const firstDisposedAfterSecond = first.disposed;
+  renderChart({ times: [] });
+  const emptyState = {
+    secondDisposed: second.disposed,
+    instanceIsNull: chartInstance === null,
+    html: elements.chart.innerHTML
+  };
+
+  await loadChart();
+  const errorNode = elements.chart.children[0];
+  const failureState = {
+    instanceIsNull: chartInstance === null,
+    className: errorNode.className,
+    text: errorNode.textContent
+  };
+
+  fetchMode = 'success';
+  await loadChart();
+  const recovered = chartInstances[2];
+  listeners.resize[0]();
+  process.stdout.write(JSON.stringify({
+    firstSeries,
+    option: {
+      background: first.option.backgroundColor,
+      tooltipBackground: first.option.tooltip.backgroundColor,
+      tooltipBorder: first.option.tooltip.borderColor,
+      tooltipTextColor: first.option.tooltip.textStyle.color,
+      tooltipCallable: typeof first.option.tooltip.formatter === 'function',
+      tooltipText,
+      legendTextColor: first.option.legend.textStyle.color,
+      xLine: first.option.xAxis.axisLine.lineStyle.color,
+      xLabel: first.option.xAxis.axisLabel.color,
+      xSplit: first.option.xAxis.splitLine.lineStyle.color,
+      yLine: first.option.yAxis.axisLine.lineStyle.color,
+      yLabel: first.option.yAxis.axisLabel.color,
+      ySplit: first.option.yAxis.splitLine.lineStyle.color,
+      yFormatted: first.option.yAxis.axisLabel.formatter(6.7),
+      dataZoom: first.option.dataZoom[0]
+    },
+    lifecycle: {
+      firstDisposedAfterSecond,
+      listenerCount: (listeners.resize || []).length,
+      instanceCount: chartInstances.length,
+      emptyState,
+      failureState,
+      recoveredHasOption: Boolean(recovered.option),
+      recoveredDomCleared: elements.chart.children.length === 0
+        && elements.chart.innerHTML === '',
+      recoveredResizeCalls: recovered.resizeCalls
+    }
+  }));
+})().catch(error => {
+  process.stderr.write(error.stack + '\\n');
+  process.exit(1);
+});
+""")
+
+        self.assertEqual(result["firstSeries"], [
+            {"name": "银行卖价", "data": [6.8], "lineColor": "#ff857a", "itemColor": "#ff857a", "type": "solid"},
+            {"name": "银行成本", "data": [6.79], "lineColor": "#d8a84e", "itemColor": "#d8a84e", "type": "dashed"},
+            {"name": "市场成本", "data": [6.78], "lineColor": "#98a6ae", "itemColor": "#98a6ae", "type": "solid"},
+            {"name": "银行买价", "data": [6.77], "lineColor": "#56d8b3", "itemColor": "#56d8b3", "type": "solid"},
+        ])
+        option = result["option"]
+        self.assertEqual(option["background"], "#0e1620")
+        self.assertEqual(option["tooltipBackground"], "rgba(14,22,32,.96)")
+        self.assertEqual(option["tooltipBorder"], "#2a3b47")
+        self.assertEqual(option["tooltipTextColor"], "#dce5e8")
+        self.assertTrue(option["tooltipCallable"])
+        self.assertIn("6.8000", option["tooltipText"])
+        self.assertIn("color:#56d8b3", option["tooltipText"])
+        self.assertEqual(option["legendTextColor"], "#91a1a8")
+        for key in ["xLine", "yLine"]:
+            self.assertEqual(option[key], "#2c3b46")
+        for key in ["xLabel", "yLabel"]:
+            self.assertEqual(option[key], "#7f9098")
+        for key in ["xSplit", "ySplit"]:
+            self.assertEqual(option[key], "#192833")
+        self.assertEqual(option["yFormatted"], "6.7000")
+        self.assertEqual(option["dataZoom"], {"type": "inside", "start": 0, "end": 100})
+
+        lifecycle = result["lifecycle"]
+        self.assertTrue(lifecycle["firstDisposedAfterSecond"])
+        self.assertEqual(lifecycle["listenerCount"], 1)
+        self.assertEqual(lifecycle["instanceCount"], 3)
+        self.assertTrue(lifecycle["emptyState"]["secondDisposed"])
+        self.assertTrue(lifecycle["emptyState"]["instanceIsNull"])
+        self.assertIn("暂无今日数据", lifecycle["emptyState"]["html"])
+        self.assertEqual(lifecycle["failureState"], {
+            "instanceIsNull": True,
+            "className": "inline-state inline-error",
+            "text": "图表暂时无法获取，请稍后重试",
+        })
+        self.assertTrue(lifecycle["recoveredHasOption"])
+        self.assertTrue(lifecycle["recoveredDomCleared"])
+        self.assertEqual(lifecycle["recoveredResizeCalls"], 1)
 
     def test_focus_and_mobile_layout_keep_scroll_inside_quote_matrix(self):
+        style_source = self.html[
+            self.html.index("<style>") + len("<style>"):
+            self.html.index("</style>")
+        ]
+        normalized_css = re.sub(r"\s+", "", style_source)
         focus_rule = (
             ":is(button,select,input):focus-visible{outline:2px solid "
             "var(--accent);outline-offset:2px}"
         )
-        self.assertIn(focus_rule, self.html)
+        self.assertIn(re.sub(r"\s+", "", focus_rule), normalized_css)
 
-        media_860_start = self.html.index("@media(max-width:860px){")
-        media_640_start = self.html.index("@media(max-width:640px){")
-        media_860 = self.html[media_860_start:media_640_start]
+        media_860_start = normalized_css.index("@media(max-width:860px){")
+        media_640_start = normalized_css.index("@media(max-width:640px){")
+        media_860 = normalized_css[media_860_start:media_640_start]
         for rule in [
             ".entry-layout{grid-template-columns:1fr}",
             ".form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}",
@@ -679,30 +810,30 @@ class MockFragment extends MockNode {
         ]:
             self.assertIn(rule, media_860)
 
-        media_640 = self.html[media_640_start:self.html.index("</style>")]
+        media_640 = normalized_css[media_640_start:]
         for rule in [
-            ".app-shell{width:calc(100% - 16px);margin:12px auto 24px;",
+            ".app-shell{width:calc(100%-16px);margin:12pxauto24px;",
             ".terminal-header{align-items:flex-start;flex-direction:column}",
             ".live-meta{width:100%;align-items:center;flex-direction:row;"
             "justify-content:space-between}",
-            ".panel-heading{min-height:0;padding:10px 0}",
+            ".panel-heading{min-height:0;padding:10px0}",
             ".quote-matrix{min-width:820px}",
-            ".quote-head,.source-row{grid-template-columns:108px "
-            "repeat(4,minmax(142px,1fr)) 86px}",
+            ".quote-head,.source-row{grid-template-columns:108px"
+            "repeat(4,minmax(142px,1fr))86px}",
             ".tab-content{padding:10px}",
             ".entry-layout{grid-template-columns:1fr}",
             ".entry-panel,.recent-panel{padding:14px}",
             ".form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}",
-            ".field-wide{grid-column:span 2}",
+            ".field-wide{grid-column:span2}",
             ".chart-controls{grid-template-columns:1fr}",
             "#chart{height:330px}",
         ]:
             self.assertIn(rule, media_640)
 
-        self.assertRegex(self.html, r"body\{[^}]*overflow-x:hidden[^}]*\}")
-        self.assertEqual(self.html.count(".quotes{overflow-x:auto}"), 1)
-        self.assertEqual(self.html.count("overflow-x:auto"), 1)
-        self.assertNotIn("@media(max-width:600px)", self.html)
+        self.assertRegex(normalized_css, r"body\{[^}]*overflow-x:hidden[^}]*\}")
+        self.assertEqual(normalized_css.count(".quotes{overflow-x:auto}"), 1)
+        self.assertEqual(normalized_css.count("overflow-x:auto"), 1)
+        self.assertNotIn("@media(max-width:600px)", normalized_css)
 
     def test_entry_and_chart_selectors_contain_new_banks(self):
         for bank in ["工商银行", "农业银行", "邮储银行", "民生银行"]:
