@@ -344,14 +344,12 @@ async function submitEntry() {
       return;
     }
     const market = data.market_cost.toFixed(4);
-    const bankC = data.bank_cost.toFixed(4);
     const bankPrice = dir === '买入价' ? data.bank_bid.toFixed(4) : data.bank_ask.toFixed(4);
     const priceLabel = bank + (dir === '买入价' ? '买入价' : '卖出价');
     const compareLabel = data.compare_time || '当前实时';
     document.getElementById('entryResult').innerHTML =
       '▎比较基准：<b>' + compareLabel + '</b><br><br>'
       + '▎对比市场中间价<br>  市场成本 ' + market + '，你的报价 ' + quote.toFixed(4) + '<br>  银行赚取 <b style="color:#22c55e">' + data.bp_vs_market + 'bp</b><br><br>'
-      + '▎对比银行自身成本<br>  银行成本 ' + bankC + '，你的报价 ' + quote.toFixed(4) + '<br>  银行赚取 <b style="color:#f59e0b">' + data.bp_vs_bank + 'bp</b><br><br>'
       + '▎对比' + priceLabel + '<br>  ' + priceLabel + ' ' + bankPrice + '，你的报价 ' + quote.toFixed(4) + '<br>  你比银行牌价<b style="color:' + (data.bp_vs_bank_price >= 0 ? '#22c55e' : '#ef4444') + '">' + (data.bp_vs_bank_price >= 0 ? '优惠' : '更差') + Math.abs(data.bp_vs_bank_price) + 'bp</b>';
     loadEntries();
   } catch(e) {
@@ -369,7 +367,7 @@ async function loadEntries() {
       return;
     }
     el.innerHTML = data.entries.map(e =>
-      e.time + ' ' + e.pair + ' ' + e.bank + ' ' + e.direction + ' ' + e.quote.toFixed(4) + ' → 银行赚 ' + e.bp_vs_bank + 'bp'
+      e.time + ' ' + e.pair + ' ' + e.bank + ' ' + e.direction + ' ' + e.quote.toFixed(4) + ' → 银行赚 ' + e.bp_vs_market + 'bp'
     ).join('<br>');
   } catch(e) {
     console.error('loadEntries error:', e);

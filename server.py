@@ -223,34 +223,29 @@ async def save_entry(
         bank_bid = round(market_mid + spread["bid_offset"], 4)
         bank_ask = round(market_mid + spread["ask_offset"], 4)
 
-    bank_cost = round((bank_bid + bank_ask) / 2, 4)
     market_cost = market_mid
 
     if direction == "买入价":
         bp_vs_market = round((market_cost - quote) * 10000, 1)
-        bp_vs_bank = round((bank_cost - quote) * 10000, 1)
         bp_vs_bank_price = round((quote - bank_bid) * 10000, 1)
     else:
         bp_vs_market = round((quote - market_cost) * 10000, 1)
-        bp_vs_bank = round((quote - bank_cost) * 10000, 1)
         bp_vs_bank_price = round((bank_ask - quote) * 10000, 1)
 
     db.save_user_entry(
         pair=pair, bank=bank, direction=direction,
         user_quote=quote,
         market_cost=market_cost,
-        bank_cost=bank_cost,
+        bank_cost=0,
         bp_vs_market=bp_vs_market,
-        bp_vs_bank=bp_vs_bank,
+        bp_vs_bank=0,
     )
 
     return {
         "ok": True,
         "bp_vs_market": bp_vs_market,
-        "bp_vs_bank": bp_vs_bank,
         "bp_vs_bank_price": bp_vs_bank_price,
         "market_cost": market_cost,
-        "bank_cost": bank_cost,
         "bank_bid": bank_bid,
         "bank_ask": bank_ask,
         "compare_time": compare_time,
