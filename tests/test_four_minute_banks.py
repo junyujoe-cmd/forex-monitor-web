@@ -577,8 +577,19 @@ process.stdout.write(elements.quotesContainer.innerHTML);
                 "JPYCNY": valid,
             },
             {
-                "工商银行": {"USDCNY": valid},
-                "农业银行": {"USDCNY": {"bid": "Infinity", "ask": 6.80}},
+                "工商银行": {"USDCNY": {"bid": "Infinity", "ask": 6.80}},
+                "建设银行": {
+                    "USDCNY": {
+                        **valid,
+                        "fetch_time": "2026-07-13 12:30:00",
+                    },
+                },
+                "杭州银行": {
+                    "USDCNY": {
+                        **valid,
+                        "fetch_time": "2026-07-13 12:29:00",
+                    },
+                },
                 "民生银行": full_bank,
             },
             "2026-07-13 12:30:00",
@@ -587,13 +598,26 @@ process.stdout.write(elements.quotesContainer.innerHTML);
         self.assertNotIn("NaN", rendered)
         self.assertNotIn("Infinity", rendered)
         self.assertIn("部分缺失", self.source_row(rendered, "CFETS"))
-        self.assertIn("部分缺失", self.source_row(rendered, "工商银行"))
-        self.assertIn("暂无新数据", self.source_row(rendered, "农业银行"))
+        icbc_row = self.source_row(rendered, "工商银行")
+        self.assertIn("暂无新数据", icbc_row)
+        self.assertIn('<small class="source-time">真实报价</small>', icbc_row)
+        self.assertIn(
+            '<small class="source-time">本轮抓取 12:30</small>',
+            self.source_row(rendered, "建设银行"),
+        )
+        self.assertIn(
+            '<small class="source-time">上次抓取 12:29</small>',
+            self.source_row(rendered, "杭州银行"),
+        )
+        self.assertIn(
+            '<small class="source-time">等待数据</small>',
+            self.source_row(rendered, "农业银行"),
+        )
         minsheng_row = self.source_row(rendered, "民生银行")
         self.assertIn('<small class="source-time">源 12:30</small>', minsheng_row)
         self.assertIn(">正常</div>", minsheng_row)
         self.assertIn(
-            'aria-label="农业银行 USDCNY 买入 --，卖出 6.8000"',
+            'aria-label="工商银行 USDCNY 买入 --，卖出 6.8000"',
             rendered,
         )
 

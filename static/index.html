@@ -63,13 +63,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .quote-status.missing{color:var(--danger)}
 
 /* ── Tab Bar ── */
-.tab-bar{display:flex;background:#0f3460;margin:12px 0 0;border-radius:6px 6px 0 0;overflow:hidden}
+.tab-bar{display:flex;background:#0f3460;margin:6px 8px 0;border-radius:6px 6px 0 0;overflow:hidden}
 .tab-btn{flex:1;padding:10px;text-align:center;font-size:14px;cursor:pointer;border:none;background:transparent;color:#888;transition:all .2s}
 .tab-btn.active{background:#1a1a2e;color:#fff;font-weight:600}
 .tab-btn:hover{color:#ddd}
 
 /* ── Tab Content ── */
-.tab-content{background:#1a1a2e;margin:0;border-radius:0 0 6px 6px;padding:14px;min-height:300px}
+.tab-content{background:#1a1a2e;margin:0 8px 8px;border-radius:0 0 6px 6px;padding:14px;min-height:300px}
 .tab-pane{display:none}
 .tab-pane.active{display:block}
 
@@ -246,6 +246,7 @@ function renderQuotes(cfets, banks, timestamp) {
   for (const source of BANK_NAMES) {
     let cells = '';
     let validPairCount = 0;
+    let hasAnyQuote = false;
     let sourceTime = '';
     let fetchTime = '';
     for (const pair of PAIRS) {
@@ -257,6 +258,7 @@ function renderQuotes(cfets, banks, timestamp) {
       const bid = hasBid ? bidValue.toFixed(4) : '--';
       const ask = hasAsk ? askValue.toFixed(4) : '--';
       if (hasBid && hasAsk) validPairCount += 1;
+      if (hasBid || hasAsk) hasAnyQuote = true;
       if (!sourceTime && quote.source_time) sourceTime = quote.source_time;
       if (!fetchTime && quote.fetch_time) fetchTime = quote.fetch_time;
       cells += '<div class="quote-cell" role="cell" aria-label="' + source + ' ' + pair
@@ -271,7 +273,7 @@ function renderQuotes(cfets, banks, timestamp) {
       const label = fetchTime === timestamp ? '本轮抓取' : '上次抓取';
       sourceMeta = label + ' ' + fetchTime.slice(11, 16);
     } else if (source !== 'CFETS') {
-      sourceMeta = validPairCount === 0 ? '等待数据' : '真实报价';
+      sourceMeta = hasAnyQuote ? '真实报价' : '等待数据';
     }
 
     let statusClass = 'ok';
