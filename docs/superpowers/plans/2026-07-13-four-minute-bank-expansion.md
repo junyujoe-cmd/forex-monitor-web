@@ -6,7 +6,7 @@
 
 **Architecture / 架构:** Four source-specific fetchers normalize official JSON or JSONP into the existing quote dictionary. The server fetches independent bank sources concurrently, saves only current-cycle valid values, and never caches the four new banks indefinitely. The existing single-file frontend renders a scroll-safe matrix without changing the entry or chart panel structure. / 四个抓取函数把银行官方 JSON 或 JSONP 统一成现有报价字典；服务器并行抓取相互独立的银行源，只保存本轮有效数据，四家新增银行绝不无限缓存；现有单文件前端改成可在窄窗口滚动的报价矩阵，不重构录入和图表面板。
 
-**Tech Stack / 技术栈:** Python 3.11 virtual environment, `requests`, FastAPI, APScheduler, SQLite, `unittest`/pytest runner, plain HTML/CSS/JavaScript, ECharts. / Python 3.11 虚拟环境、`requests`、FastAPI、APScheduler、SQLite、`unittest`/pytest 执行器、原生 HTML/CSS/JavaScript、ECharts。
+**Tech Stack / 技术栈:** Python 3.11 virtual environment, `requests`, FastAPI, APScheduler, SQLite, built-in `unittest`, plain HTML/CSS/JavaScript, ECharts. / Python 3.11 虚拟环境、`requests`、FastAPI、APScheduler、SQLite、内置 `unittest`、原生 HTML/CSS/JavaScript、ECharts。
 
 ---
 
@@ -32,10 +32,10 @@
 Run / 运行：
 
 ```bash
-rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m pytest -q
+rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m unittest discover -s tests -v
 ```
 
-Expected / 预期：`6 passed`.
+Expected / 预期：`Ran 6 tests` and `OK`. / 共运行 6 个测试并显示 `OK`。
 
 - [ ] **Step 2: Write failing parser tests / 编写失败的解析测试**
 
@@ -182,7 +182,7 @@ class NewBankFetcherTests(unittest.TestCase):
 Run / 运行：
 
 ```bash
-rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m pytest tests/test_four_minute_banks.py -q
+rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m unittest tests.test_four_minute_banks -v
 ```
 
 Expected / 预期：collection fails because `fetch_icbc_rates`, `fetch_abc_rates`, `fetch_psbc_rates`, and `fetch_cmbc_rates` do not exist. / 因四个函数尚不存在而收集失败。
@@ -385,10 +385,10 @@ def fetch_cmbc_rates():
 Run / 运行：
 
 ```bash
-rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m pytest tests/test_four_minute_banks.py -q
+rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m unittest tests.test_four_minute_banks -v
 ```
 
-Expected / 预期：`5 passed`.
+Expected / 预期：`Ran 5 tests` and `OK`. / 共运行 5 个测试并显示 `OK`。
 
 - [ ] **Step 6: Commit Task 1 only / 只提交任务一**
 
@@ -521,7 +521,7 @@ def test_failed_fetch_does_not_reuse_old_hangzhou_quotes(self):
 - [ ] **Step 2: Run focused tests and verify RED / 运行聚焦测试并确认失败**
 
 ```bash
-rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m pytest tests/test_four_minute_banks.py tests/test_hangzhou_bank.py -q
+rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m unittest tests.test_four_minute_banks tests.test_hangzhou_bank -v
 ```
 
 Expected / 预期：fails because `_fetch_all_bank_rates` and new-bank integration do not exist, and entry still synthesizes a quote. / 因并行采集函数、新银行整合尚不存在且录入接口仍生成模拟价而失败。
@@ -627,7 +627,7 @@ if bank_bid is None or bank_ask is None:
 - [ ] **Step 5: Run pipeline regressions and verify GREEN / 运行流水线回归并确认通过**
 
 ```bash
-rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m pytest tests/test_four_minute_banks.py tests/test_hangzhou_bank.py -q
+rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m unittest tests.test_four_minute_banks tests.test_hangzhou_bank -v
 ```
 
 Expected / 预期：new parser and pipeline tests pass together with all Hangzhou Bank regressions. / 新解析与流水线测试和杭州银行回归测试全部通过。
@@ -684,7 +684,7 @@ class QuoteMatrixFrontendTests(unittest.TestCase):
 - [ ] **Step 2: Run frontend tests and verify RED / 运行前端测试并确认失败**
 
 ```bash
-rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m pytest tests/test_four_minute_banks.py::QuoteMatrixFrontendTests -q
+rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m unittest tests.test_four_minute_banks.QuoteMatrixFrontendTests -v
 ```
 
 Expected / 预期：fails because the current page still uses quote cards and contains only four bank options. / 因当前页面仍使用报价卡片且只有四家银行选项而失败。
@@ -789,7 +789,7 @@ function renderQuotes(cfets, banks, timestamp) {
 - [ ] **Step 5: Run frontend and full tests / 运行前端与全部测试**
 
 ```bash
-rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m pytest -q
+rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m unittest discover -s tests -v
 ```
 
 Expected / 预期：all parser, pipeline, Hangzhou Bank, storage, entry, and frontend tests pass. / 所有解析、流水线、杭州银行、存储、录入和前端测试通过。
@@ -816,7 +816,7 @@ Run codebase-memory `index_repository` in fast mode, then `detect_changes` from 
 - [ ] **Step 2: Run the complete automated suite / 运行完整自动化测试**
 
 ```bash
-rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m pytest -q
+rtk /Users/jun/Downloads/projects/.venvs/forex-monitor-web/bin/python -m unittest discover -s tests -v
 ```
 
 Expected / 预期：all tests pass with zero failures. / 全部测试通过且零失败。
