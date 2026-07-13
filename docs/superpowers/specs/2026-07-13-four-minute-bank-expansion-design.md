@@ -31,13 +31,13 @@ After this change, the system contains eight banks plus the CFETS market referen
 | Bank / 银行 | Official interface / 官方接口 | Format / 格式 | Observed source cadence / 已观测源时间频率 |
 |---|---|---|---|
 | ICBC / 工商银行 | `POST https://papi.icbc.com.cn/exchanges/ns/getLatest` | JSON | About 60 seconds / 约 60 秒 |
-| ABC / 农业银行 | `GET https://ewealth.abchina.com/app/data/api/DataService/ExchangeRateV2` | JSON | About 60 seconds / 约 60 秒 |
+| ABC / 农业银行 | `GET https://www.abchina.com.cn/creditCardService/DataService/ExchangeRate` | JSON | About 60 seconds / 约 60 秒 |
 | PSBC / 邮储银行 | `GET https://s.psbc.com/portal/PsbcService/foreignexchange/curr` | JSONP | About 60–80 seconds / 约 60–80 秒 |
 | CMBC / 民生银行 | `POST https://www.cmbc.com.cn/gw/po_web/queryExRateByForex.do` | JSON | About 60 seconds / 约 60 秒 |
 
-The selected CMBC endpoint has been re-verified over HTTPS. A changing official timestamp with an unchanged price is valid; it produces a truthful flat segment in the historical chart.
+The ABC endpoint above is the current URL used by the bank's official quotation page and returns the same structured fields without the old endpoint's delayed connection close. The selected CMBC endpoint has been re-verified over HTTPS. A changing official timestamp with an unchanged price is valid; it produces a truthful flat segment in the historical chart.
 
-民生银行接口已经重新确认可通过 HTTPS 使用。银行官方时间发生变化但价格不变属于正常情况；历史图中的水平线代表真实报价没有变化。
+上述农业银行接口是其官方牌价页面当前实际使用的地址，字段结构与旧接口一致，同时避免旧地址连接迟迟不结束的问题。民生银行接口已经重新确认可通过 HTTPS 使用。银行官方时间发生变化但价格不变属于正常情况；历史图中的水平线代表真实报价没有变化。
 
 ## Backend Architecture / 后端架构
 
