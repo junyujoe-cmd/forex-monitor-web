@@ -363,6 +363,42 @@ class NewBankPipelineTests(unittest.TestCase):
 
         self.assertNotIn("工商银行", server.bank_cache)
 
+    def test_missing_market_clears_all_current_only_bank_quotes(self):
+        quote = {"USDCNY": {"bid": 6.76, "ask": 6.79}}
+        legacy_banks = ["中国银行", "招商银行", "建设银行"]
+        current_only_banks = ["杭州银行", "工商银行", "农业银行", "邮储银行", "民生银行"]
+        server.cfets_cache["USDCNY"] = {"bid": 6.77, "ask": 6.78, "mid": 6.775}
+
+        for has_current_bank_results in (False, True):
+            with self.subTest(has_current_bank_results=has_current_bank_results):
+                server.bank_cache.clear()
+                server.bank_cache.update({bank: quote for bank in BANKS})
+                bank_rates = {
+                    bank: (quote if has_current_bank_results else {})
+                    for bank in BANKS
+                }
+                fake_db = Mock()
+
+                with (
+                    patch.object(server, "db", fake_db),
+                    patch.object(server, "fetch_all_quotes", return_value={}),
+                    patch.object(server, "_fetch_all_bank_rates", return_value=bank_rates),
+                ):
+                    server.fetch_and_save()
+
+                    for bank in current_only_banks:
+                        result = asyncio.run(
+                            server.save_entry("USDCNY", bank, "买入价", 6.77, None)
+                        )
+                        self.assertFalse(result["ok"])
+                        self.assertIn("暂无真实银行报价", result["error"])
+
+                for bank in legacy_banks:
+                    self.assertIn(bank, server.bank_cache)
+                for bank in current_only_banks:
+                    self.assertNotIn(bank, server.bank_cache)
+                fake_db.save_user_entry.assert_not_called()
+
     def test_entry_rejects_missing_real_bank_quote(self):
         server.cfets_cache["USDCNY"] = {"bid": 6.77, "ask": 6.78, "mid": 6.775}
         fake_db = Mock()

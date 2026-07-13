@@ -68,6 +68,8 @@ def fetch_and_save():
     quotes = fetch_all_quotes() or {}
     current_rates = _fetch_all_bank_rates()
     if not quotes:
+        for bank in ("杭州银行", "工商银行", "农业银行", "邮储银行", "民生银行"):
+            bank_cache.pop(bank, None)
         return
 
     db.save_market_quotes_batch(cycle_id, quotes, "CFETS")
