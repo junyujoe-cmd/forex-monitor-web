@@ -16,11 +16,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 
 /* ── Quote Matrix ── */
 .quotes{padding:6px 8px;background:#0a1628;overflow-x:auto}
-.quote-matrix{min-width:760px;background:#0d2038;border:1px solid #1d4266;border-radius:7px;overflow:hidden}
+.quote-matrix{min-width:760px;background:#0d2038;border:1px solid #1d4266;border-radius:7px;overflow:visible}
 .quote-head,.source-row{display:grid;grid-template-columns:92px repeat(4,minmax(130px,1fr)) 90px;align-items:center}
 .quote-head{background:#09182b;color:#8fa0b6;font-size:10px;border-bottom:1px solid #285076;text-align:center}
 .quote-head>div{padding:7px 4px}
-.quote-head .source-name{text-align:left;padding-left:12px}
+.quote-head .source-name{text-align:left;padding-left:12px;position:sticky;left:0;z-index:3;background:#09182b}
 .quote-head b{display:block;color:#dce7f5;font-size:11px}
 .quote-head .buy-label{color:#4ade80;margin-right:7px}
 .quote-head .sell-label{color:#ef4444}
@@ -29,11 +29,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .source-row.cfets{background:#17395e}
 .source-row:hover{background:#123052}
 .source-name{font-size:12px;font-weight:700;color:#c5d1e0;padding-left:12px;white-space:nowrap}
+.source-row .source-name{position:sticky;left:0;z-index:2;background:#0d2038;align-self:stretch;display:flex;align-items:center}
+.source-row.cfets .source-name{background:#17395e}
+.source-row:hover .source-name{background:#123052}
 .quote-cell{text-align:center;font-variant-numeric:tabular-nums}
 .quote-cell .buy{color:#4ade80;font-weight:700;margin-right:7px}
 .quote-cell .sell{color:#ef4444;font-weight:700}
 .quote-status{text-align:center;color:#8292a8;font-size:9px;line-height:1.35}
 .quote-status.ok{color:#4ade80}
+.quote-status.partial{color:#fbbf24}
 .quote-status.missing{color:#ef9a9a}
 
 /* ── Tab Bar ── */
@@ -185,24 +189,30 @@ const BANK_NAMES = [
 function renderQuotes(cfets, banks, timestamp) {
   const el = document.getElementById('quotesContainer');
   document.getElementById('updateTime').textContent = '最后更新: ' + (timestamp || '--');
-  let html = '<div class="quote-matrix"><div class="quote-head">'
-    + '<div class="source-name">数据来源</div>'
-    + PAIRS.map(pair => '<div><b>' + pair + '</b><span class="buy-label">买入</span><span class="sell-label">卖出</span></div>').join('')
-    + '<div>状态</div></div>';
+  let html = '<div class="quote-matrix" role="table" aria-label="外汇买入卖出报价矩阵"><div class="quote-head" role="row">'
+    + '<div class="source-name" role="columnheader">数据来源</div>'
+    + PAIRS.map(pair => '<div role="columnheader"><b>' + pair + '</b><span class="buy-label">买入</span><span class="sell-label">卖出</span></div>').join('')
+    + '<div role="columnheader">状态</div></div>';
 
   for (const source of BANK_NAMES) {
     let cells = '';
-    let hasData = false;
+    let validPairCount = 0;
     let sourceTime = '';
     let fetchTime = '';
     for (const pair of PAIRS) {
       const quote = source === 'CFETS' ? (cfets[pair] || {}) : ((banks[source] && banks[source][pair]) || {});
-      const bid = quote.bid != null ? Number(quote.bid).toFixed(4) : '--';
-      const ask = quote.ask != null ? Number(quote.ask).toFixed(4) : '--';
-      if (quote.bid != null && quote.ask != null) hasData = true;
+      const bidValue = Number(quote.bid);
+      const askValue = Number(quote.ask);
+      const hasBid = quote.bid != null && String(quote.bid).trim() !== '' && Number.isFinite(bidValue);
+      const hasAsk = quote.ask != null && String(quote.ask).trim() !== '' && Number.isFinite(askValue);
+      const bid = hasBid ? bidValue.toFixed(4) : '--';
+      const ask = hasAsk ? askValue.toFixed(4) : '--';
+      if (hasBid && hasAsk) validPairCount += 1;
       if (!sourceTime && quote.source_time) sourceTime = quote.source_time;
       if (!fetchTime && quote.fetch_time) fetchTime = quote.fetch_time;
-      cells += '<div class="quote-cell"><span class="buy">' + bid + '</span><span class="sell">' + ask + '</span></div>';
+      cells += '<div class="quote-cell" role="cell" aria-label="' + source + ' ' + pair
+        + ' 买入 ' + bid + '，卖出 ' + ask + '"><span class="buy">' + bid
+        + '</span><span class="sell">' + ask + '</span></div>';
     }
 
     let statusClass = 'ok';
@@ -215,13 +225,16 @@ function renderQuotes(cfets, banks, timestamp) {
     } else if (source !== 'CFETS') {
       statusText = '有真实数据';
     }
-    if (!hasData) {
+    if (validPairCount === 0) {
       statusClass = 'missing';
       statusText = '暂无新数据';
+    } else if (validPairCount < PAIRS.length) {
+      statusClass = 'partial';
+      statusText = '部分缺失';
     }
-    html += '<div class="source-row ' + (source === 'CFETS' ? 'cfets' : '') + '">'
-      + '<div class="source-name">' + source + '</div>' + cells
-      + '<div class="quote-status ' + statusClass + '">' + statusText + '</div></div>';
+    html += '<div class="source-row ' + (source === 'CFETS' ? 'cfets' : '') + '" role="row">'
+      + '<div class="source-name" role="rowheader">' + source + '</div>' + cells
+      + '<div class="quote-status ' + statusClass + '" role="cell">' + statusText + '</div></div>';
   }
   el.innerHTML = html + '</div>';
 }

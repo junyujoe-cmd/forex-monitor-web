@@ -1,6 +1,7 @@
 import asyncio
 import json
 import ssl
+import subprocess
 import tempfile
 import unittest
 from datetime import datetime, time, timedelta
@@ -466,6 +467,90 @@ class QuoteMatrixFrontendTests(unittest.TestCase):
         self.assertNotIn("市场' + mc + ' 银行' + bc", self.html)
         self.assertIn("暂无新数据", self.html)
         self.assertIn("上次抓取", self.html)
+
+    @classmethod
+    def render_quotes(cls, cfets, banks, timestamp):
+        script_start = cls.html.index('const PAIRS = ["USDCNY"')
+        script_end = cls.html.index("// ── 获取报价 ──", script_start)
+        render_script = cls.html[script_start:script_end]
+        harness = f"""
+const elements = {{
+  quotesContainer: {{ innerHTML: '' }},
+  updateTime: {{ textContent: '' }}
+}};
+const document = {{ getElementById: id => elements[id] }};
+{render_script}
+renderQuotes(
+  {json.dumps(cfets, ensure_ascii=False)},
+  {json.dumps(banks, ensure_ascii=False)},
+  {json.dumps(timestamp)}
+);
+process.stdout.write(elements.quotesContainer.innerHTML);
+"""
+        result = subprocess.run(
+            ["node", "-e", harness],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout
+
+    @staticmethod
+    def source_row(rendered, source):
+        marker = f'role="rowheader">{source}</div>'
+        marker_pos = rendered.index(marker)
+        row_start = rendered.rfind('<div class="source-row', 0, marker_pos)
+        row_end = rendered.find('<div class="source-row', marker_pos)
+        return rendered[row_start:row_end if row_end >= 0 else len(rendered)]
+
+    def test_non_finite_and_partial_quotes_render_truthful_states(self):
+        valid = {"bid": 6.76, "ask": 6.79}
+        full_bank = {
+            pair: {**valid, "source_time": "2026-07-13 12:30:00"}
+            for pair in ["USDCNY", "EURCNY", "HKDCNY", "JPYCNY"]
+        }
+        rendered = self.render_quotes(
+            {
+                "USDCNY": valid,
+                "EURCNY": {"bid": "NaN", "ask": 7.80},
+                "HKDCNY": valid,
+                "JPYCNY": valid,
+            },
+            {
+                "工商银行": {"USDCNY": valid},
+                "农业银行": {"USDCNY": {"bid": "Infinity", "ask": 6.80}},
+                "民生银行": full_bank,
+            },
+            "2026-07-13 12:30:00",
+        )
+
+        self.assertNotIn("NaN", rendered)
+        self.assertNotIn("Infinity", rendered)
+        self.assertIn("部分缺失", self.source_row(rendered, "CFETS"))
+        self.assertIn("部分缺失", self.source_row(rendered, "工商银行"))
+        self.assertIn("暂无新数据", self.source_row(rendered, "农业银行"))
+        self.assertIn("正常<br>12:30", self.source_row(rendered, "民生银行"))
+        self.assertIn(
+            'aria-label="农业银行 USDCNY 买入 --，卖出 6.8000"',
+            rendered,
+        )
+
+    def test_source_column_stays_visible_during_horizontal_scroll(self):
+        self.assertIn("overflow:visible", self.html)
+        self.assertIn("position:sticky", self.html)
+        self.assertIn(".source-row .source-name", self.html)
+        self.assertIn(".source-row.cfets .source-name", self.html)
+        self.assertIn(".source-row:hover .source-name", self.html)
+        self.assertIn("z-index:3", self.html)
+        self.assertIn("z-index:2", self.html)
+
+    def test_matrix_has_accessible_table_semantics(self):
+        self.assertIn('role="table"', self.html)
+        self.assertIn('aria-label="外汇买入卖出报价矩阵"', self.html)
+        self.assertIn('role="columnheader"', self.html)
+        self.assertIn('role="rowheader"', self.html)
+        self.assertIn('role="cell"', self.html)
+        self.assertIn("买入 ' + bid + '，卖出 ' + ask", self.html)
 
 
 if __name__ == "__main__":
