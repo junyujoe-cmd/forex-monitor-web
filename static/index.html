@@ -499,7 +499,7 @@ async function submitEntry() {
       url += '&time=' + encodeURIComponent(entryDate + 'T' + entryTime);
     }
     const res = await fetch(url, { method: 'POST' });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
       document.getElementById('entryResult').textContent = data.error || '提交失败，请稍后重试';
       return;
@@ -516,7 +516,8 @@ async function submitEntry() {
       + '▎与银行牌价比较<br>' + priceLabel + ' ' + bankPrice + '，你的报价 ' + quote.toFixed(4) + '<br>你比银行牌价<span class="' + bankClass + '">' + (data.bp_vs_bank_price >= 0 ? '优惠' : '更差') + Math.abs(data.bp_vs_bank_price) + 'bp</span>';
     loadEntries();
   } catch(e) {
-    document.getElementById('entryResult').textContent = '提交失败: ' + e.message;
+    console.error('submitEntry error:', e);
+    document.getElementById('entryResult').textContent = '提交失败，请稍后重试';
   }
 }
 

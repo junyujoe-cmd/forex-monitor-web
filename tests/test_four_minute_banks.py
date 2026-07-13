@@ -477,6 +477,52 @@ class NewBankPipelineTests(unittest.TestCase):
 
 
 class QuoteMatrixFrontendTests(unittest.TestCase):
+    NODE_DOM_PRELUDE = """
+class MockNode {
+  constructor(tagName = 'div') {
+    this.tagName = tagName;
+    this.className = '';
+    this.attributes = {};
+    this.children = [];
+    this.value = '';
+    this._innerHTML = '';
+    this._textContent = '';
+    this.innerHTMLWrites = 0;
+    this.textContentWrites = 0;
+    this.replaceChildrenCalls = 0;
+    this.isFragment = false;
+  }
+  set innerHTML(value) {
+    this._innerHTML = String(value);
+    this.innerHTMLWrites += 1;
+    this.children = [];
+  }
+  get innerHTML() { return this._innerHTML; }
+  set textContent(value) {
+    this._textContent = String(value);
+    this.textContentWrites += 1;
+    this.children = [];
+  }
+  get textContent() { return this._textContent; }
+  setAttribute(name, value) { this.attributes[name] = String(value); }
+  append(...nodes) { this.children.push(...nodes); }
+  replaceChildren(...nodes) {
+    this.replaceChildrenCalls += 1;
+    this.children = [];
+    nodes.forEach(node => {
+      if (node && node.isFragment) this.children.push(...node.children);
+      else if (node) this.children.push(node);
+    });
+  }
+}
+class MockFragment extends MockNode {
+  constructor() {
+    super('fragment');
+    this.isFragment = true;
+  }
+}
+"""
+
     @classmethod
     def setUpClass(cls):
         cls.html = (Path(__file__).parents[1] / "static" / "index.html").read_text()
@@ -492,9 +538,9 @@ class QuoteMatrixFrontendTests(unittest.TestCase):
         return json.loads(result.stdout)
 
     @classmethod
-    def function_source(cls, signature):
-        start = cls.html.index(signature)
-        end = cls.html.index("\n}\n", start) + 3
+    def extract_js(cls, start_marker, end_marker):
+        start = cls.html.index(start_marker)
+        end = cls.html.index(end_marker, start)
         return cls.html[start:end]
 
     def test_matrix_contains_all_nine_sources(self):
@@ -567,9 +613,10 @@ class QuoteMatrixFrontendTests(unittest.TestCase):
 
         if not NODE_BINARY:
             self.skipTest("Node.js is required for dynamic frontend rendering")
-        tab_start = self.html.index("document.querySelectorAll('.tab-btn')")
-        tab_end = self.html.index("// ── 报价栏渲染 ──", tab_start)
-        tab_script = self.html[tab_start:tab_end]
+        tab_script = self.extract_js(
+            "document.querySelectorAll('.tab-btn')",
+            "// ── 报价栏渲染 ──",
+        )
         result = self.run_node_json("""
 function makeClassList(initial) {
   const classes = new Set(initial);
@@ -633,14 +680,41 @@ process.stdout.write(JSON.stringify({
         })
 
     def test_loading_and_request_failures_are_inline_and_retryable(self):
-        for signature in [
-            "async function fetchQuotes()",
-            "async function loadChart()",
-            "async function loadEntries()",
+        for start_marker, end_marker in [
+            ("async function fetchQuotes()", "// ── 图表 ──"),
+            ("async function loadChart()", "function renderChart(data)"),
+            ("async function loadEntries()", "// ── 日期选择器初始化为今天 ──"),
         ]:
-            source = self.function_source(signature)
+            source = self.extract_js(start_marker, end_marker)
             self.assertIn("if (!res.ok) throw new Error(", source)
             self.assertIn("res.status", source)
+        inline_error_source = self.extract_js(
+            "function showInlineError(containerId, message)",
+            "function renderQuotes(cfets, banks, timestamp)",
+        )
+        self.assertIn("textContent", inline_error_source)
+        self.assertIn("replaceChildren", inline_error_source)
+        self.assertNotIn("innerHTML", inline_error_source)
+        load_entries_source = self.extract_js(
+            "async function loadEntries()",
+            "// ── 日期选择器初始化为今天 ──",
+        )
+        for marker in [
+            "createDocumentFragment", "createElement",
+            "textContent", "replaceChildren",
+        ]:
+            self.assertIn(marker, load_entries_source)
+        self.assertNotIn("innerHTML", load_entries_source)
+        load_chart_source = self.extract_js(
+            "async function loadChart()",
+            "function renderChart(data)",
+        )
+        self.assertIn("chartInstance.dispose()", load_chart_source)
+        self.assertIn("chartInstance = null", load_chart_source)
+        self.assertIn(
+            "showInlineError('chart', '图表暂时无法获取，请稍后重试')",
+            load_chart_source,
+        )
         self.assertEqual(self.html.count("renderQuoteSkeleton();"), 1)
         skeleton_call = self.html.index("renderQuoteSkeleton();")
         self.assertLess(skeleton_call, self.html.index("fetchQuotes();", skeleton_call))
@@ -649,55 +723,12 @@ process.stdout.write(JSON.stringify({
 
         if not NODE_BINARY:
             self.skipTest("Node.js is required for dynamic frontend rendering")
-        behavior_start = self.html.index('const PAIRS = ["USDCNY"')
-        behavior_end = self.html.index("function renderChart(data)", behavior_start)
-        entries_start = self.html.index("async function loadEntries()")
-        entries_end = self.html.index("// ── 日期选择器初始化为今天 ──", entries_start)
-        behavior_script = self.html[behavior_start:behavior_end] + self.html[entries_start:entries_end]
-        result = self.run_node_json("""
-class MockNode {
-  constructor(tagName = 'div') {
-    this.tagName = tagName;
-    this.className = '';
-    this.attributes = {};
-    this.children = [];
-    this.value = '';
-    this._innerHTML = '';
-    this._textContent = '';
-    this.innerHTMLWrites = 0;
-    this.textContentWrites = 0;
-    this.replaceChildrenCalls = 0;
-    this.isFragment = false;
-  }
-  set innerHTML(value) {
-    this._innerHTML = String(value);
-    this.innerHTMLWrites += 1;
-    this.children = [];
-  }
-  get innerHTML() { return this._innerHTML; }
-  set textContent(value) {
-    this._textContent = String(value);
-    this.textContentWrites += 1;
-    this.children = [];
-  }
-  get textContent() { return this._textContent; }
-  setAttribute(name, value) { this.attributes[name] = String(value); }
-  append(...nodes) { this.children.push(...nodes); }
-  replaceChildren(...nodes) {
-    this.replaceChildrenCalls += 1;
-    this.children = [];
-    nodes.forEach(node => {
-      if (node && node.isFragment) this.children.push(...node.children);
-      else if (node) this.children.push(node);
-    });
-  }
-}
-class MockFragment extends MockNode {
-  constructor() {
-    super('fragment');
-    this.isFragment = true;
-  }
-}
+        behavior_script = (
+            self.extract_js('const PAIRS = ["USDCNY"', "function renderChart(data)")
+            + self.extract_js("async function submitEntry()", "async function loadEntries()")
+            + load_entries_source
+        )
+        result = self.run_node_json(self.NODE_DOM_PRELUDE + """
 const elements = {
   quotesContainer: new MockNode(),
   updateTime: new MockNode(),
@@ -705,6 +736,13 @@ const elements = {
   chartPair: Object.assign(new MockNode('select'), { value: 'USDCNY' }),
   chartBank: Object.assign(new MockNode('select'), { value: '中国银行' }),
   chartDate: Object.assign(new MockNode('input'), { value: '2026-07-13' }),
+  entryPair: Object.assign(new MockNode('select'), { value: 'USDCNY' }),
+  entryBank: Object.assign(new MockNode('select'), { value: '中国银行' }),
+  entryDir: Object.assign(new MockNode('select'), { value: '买入价' }),
+  entryQuote: Object.assign(new MockNode('input'), { value: '6.7700' }),
+  entryDate: Object.assign(new MockNode('input'), { value: '' }),
+  entryTime: Object.assign(new MockNode('input'), { value: '' }),
+  entryResult: new MockNode(),
   entryRecent: new MockNode(),
   scratch: new MockNode()
 };
@@ -731,12 +769,43 @@ const fetch = async url => {
       })
     };
   }
+  if (fetchMode === 'submit-failure' && url.startsWith('/api/entry?')) {
+    return {
+      ok: false,
+      status: 503,
+      json: async () => { throw new SyntaxError('Unexpected token < in JSON'); }
+    };
+  }
+  if (fetchMode === 'submit-success' && url.startsWith('/api/entry?')) {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        market_cost: 6.78,
+        bank_bid: 6.76,
+        bank_ask: 6.80,
+        bp_vs_market: 100,
+        bp_vs_bank_price: 100,
+        compare_time: '当前实时'
+      })
+    };
+  }
+  if (fetchMode === 'submit-success' && url.startsWith('/api/entries')) {
+    return { ok: true, status: 200, json: async () => ({ entries: [] }) };
+  }
   return { ok: false, status: 503, json: async () => ({}) };
 };
 const console = { error() {} };
 let chartDisposed = false;
 let chartInstance = { dispose() { chartDisposed = true; } };
 """ + behavior_script + """
+let loadEntriesCalls = 0;
+const realLoadEntries = loadEntries;
+loadEntries = async function() {
+  loadEntriesCalls += 1;
+  return realLoadEntries();
+};
 function errorState(container) {
   const error = container.children[0];
   return {
@@ -772,6 +841,18 @@ function errorState(container) {
   const entry = elements.entryRecent.children[0];
   const main = entry.children[0];
   const meta = entry.children[1];
+
+  const callsBeforeSubmit = loadEntriesCalls;
+  fetchMode = 'submit-failure';
+  await submitEntry();
+  const submitFailureText = elements.entryResult.textContent;
+  const callsAfterFailure = loadEntriesCalls;
+
+  fetchMode = 'submit-success';
+  await submitEntry();
+  await Promise.resolve();
+  const submitSuccessHTML = elements.entryResult.innerHTML;
+  const callsAfterSuccess = loadEntriesCalls;
   process.stdout.write(JSON.stringify({
     skeletonState,
     directError,
@@ -790,6 +871,13 @@ function errorState(container) {
       metaText: meta.textContent,
       metaTextWrites: meta.textContentWrites,
       metaInnerHTMLWrites: meta.innerHTMLWrites
+    },
+    submit: {
+      failureText: submitFailureText,
+      callsBeforeSubmit,
+      callsAfterFailure,
+      successHTML: submitSuccessHTML,
+      callsAfterSuccess
     }
   }));
 })().catch(error => {
@@ -833,6 +921,24 @@ function errorState(container) {
         self.assertGreater(result["entry"]["metaTextWrites"], 0)
         self.assertEqual(result["entry"]["mainInnerHTMLWrites"], 0)
         self.assertEqual(result["entry"]["metaInnerHTMLWrites"], 0)
+        self.assertEqual(
+            result["submit"]["failureText"],
+            "提交失败，请稍后重试",
+        )
+        self.assertNotIn("Unexpected token", result["submit"]["failureText"])
+        self.assertEqual(
+            result["submit"]["callsAfterFailure"],
+            result["submit"]["callsBeforeSubmit"],
+        )
+        for marker in [
+            "比较基准", "市场成本", "你的报价",
+            "银行赚取", "与银行牌价比较",
+        ]:
+            self.assertIn(marker, result["submit"]["successHTML"])
+        self.assertEqual(
+            result["submit"]["callsAfterSuccess"],
+            result["submit"]["callsBeforeSubmit"] + 1,
+        )
 
     def test_matrix_has_no_repeated_midpoint_cost_line(self):
         self.assertNotIn("pair-card .costs", self.html)
