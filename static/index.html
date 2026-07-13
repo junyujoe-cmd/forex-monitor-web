@@ -7,47 +7,69 @@
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#0a1628;color:#ccc;min-height:100vh}
+:root{--page:#070b10;--panel:#0e1620;--panel-raised:#131e29;--line:#20303d;--line-soft:#182630;--text:#dce5e8;--muted:#7f9098;--accent:#56d8b3;--bid:#56d8b3;--ask:#ff857a;--warn:#d8a84e;--danger:#e77770}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--page);color:var(--text);min-height:100vh;overflow-x:hidden}
+.app-shell{width:min(calc(100% - 32px),1400px);max-width:1400px;margin:0 auto;padding:18px 0 28px}
 
 /* ── Header ── */
-.header{background:#0f3460;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
-.header h1{font-size:16px;color:#fff;font-weight:600}
-.header .update-time{font-size:12px;color:#888}
+.terminal-header{min-height:76px;padding:15px 18px;border:1px solid var(--line);border-bottom-color:var(--accent);background:var(--panel);display:flex;justify-content:space-between;align-items:center;gap:18px}
+.terminal-brand{display:flex;align-items:center;gap:13px;min-width:0}
+.brand-mark{width:42px;height:42px;border:1px solid rgba(86,216,179,.58);background:rgba(86,216,179,.08);color:var(--accent);display:grid;place-items:center;font-size:15px;font-weight:800;letter-spacing:.08em}
+.brand-copy h1{font-size:18px;line-height:1.25;color:var(--text);font-weight:650;letter-spacing:.02em}
+.brand-copy p{margin-top:4px;color:var(--muted);font-size:10px;letter-spacing:.18em}
+.terminal-state{display:flex;align-items:flex-end;flex-direction:column;gap:6px;white-space:nowrap}
+.live-status{display:flex;align-items:center;gap:7px;color:var(--accent);font-size:12px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(86,216,179,.09)}
+.update-time{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ── Panels ── */
+.panel{background:var(--panel);border:1px solid var(--line)}
+.quote-panel{margin-top:12px;padding:0 14px 14px}
+.panel-heading{min-height:57px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line-soft)}
+.panel-title{display:flex;align-items:baseline;gap:11px}
+.panel-heading h2{font-size:14px;font-weight:650;color:var(--text)}
+.panel-kicker{font-size:9px;letter-spacing:.16em;color:var(--muted)}
+.quote-legend{display:flex;align-items:center;gap:14px;font-size:11px}
+.quote-legend span{display:flex;align-items:center;gap:6px}
+.legend-swatch{width:10px;height:2px;background:currentColor}
+.legend-bid{color:var(--bid)}
+.legend-ask{color:var(--ask)}
 
 /* ── Quote Matrix ── */
-.quotes{padding:6px 8px;background:#0a1628;overflow-x:auto}
-.quote-matrix{min-width:760px;background:#0d2038;border:1px solid #1d4266;border-radius:7px;overflow:visible}
-.quote-head,.source-row{display:grid;grid-template-columns:92px repeat(4,minmax(130px,1fr)) 90px;align-items:center}
-.quote-head{background:#09182b;color:#8fa0b6;font-size:10px;border-bottom:1px solid #285076;text-align:center}
-.quote-head>div{padding:7px 4px}
-.quote-head .source-name{text-align:left;padding-left:12px;position:sticky;left:0;z-index:3;background:#09182b}
-.quote-head b{display:block;color:#dce7f5;font-size:11px}
-.quote-head .buy-label{color:#4ade80;margin-right:7px}
-.quote-head .sell-label{color:#ef4444}
-.source-row{min-height:45px;border-bottom:1px solid rgba(43,77,108,.55)}
+.quotes{overflow-x:auto;padding-top:12px}
+.quote-matrix{min-width:900px;background:var(--panel);border:1px solid var(--line-soft);overflow:visible}
+.quote-head,.source-row{display:grid;grid-template-columns:150px repeat(4,minmax(145px,1fr)) 100px;align-items:center}
+.quote-head{min-height:42px;background:var(--panel-raised);color:var(--muted);font-size:10px;border-bottom:1px solid var(--line);text-align:center}
+.quote-head>div{padding:8px 6px}
+.quote-head .source-name{text-align:left;padding-left:14px;position:sticky;left:0;z-index:3;background:var(--panel-raised)}
+.quote-head b{display:block;color:var(--text);font-size:11px;font-weight:650;letter-spacing:.04em}
+.quote-head .buy-label{color:var(--bid);margin-right:9px}
+.quote-head .sell-label{color:var(--ask)}
+.source-row{min-height:54px;border-bottom:1px solid var(--line-soft);transition:background-color .14s ease}
 .source-row:last-child{border-bottom:0}
-.source-row.cfets{background:#17395e}
-.source-row:hover{background:#123052}
-.source-name{font-size:12px;font-weight:700;color:#c5d1e0;padding-left:12px;white-space:nowrap}
-.source-row .source-name{position:sticky;left:0;z-index:2;background:#0d2038;align-self:stretch;display:flex;align-items:center}
-.source-row.cfets .source-name{background:#17395e}
-.source-row:hover .source-name{background:#123052}
-.quote-cell{text-align:center;font-variant-numeric:tabular-nums}
-.quote-cell .buy{color:#4ade80;font-weight:700;margin-right:7px}
-.quote-cell .sell{color:#ef4444;font-weight:700}
-.quote-status{text-align:center;color:#8292a8;font-size:9px;line-height:1.35}
-.quote-status.ok{color:#4ade80}
-.quote-status.partial{color:#fbbf24}
-.quote-status.missing{color:#ef9a9a}
+.source-row.cfets{background:rgba(86,216,179,.045)}
+.source-row:hover{background:rgba(220,229,232,.035)}
+.source-name{font-size:12px;font-weight:700;color:var(--text);padding-left:14px;white-space:nowrap}
+.source-row .source-name{position:sticky;left:0;z-index:2;background:var(--panel);align-self:stretch;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:4px}
+.source-row.cfets .source-name{background:#101d25}
+.source-row:hover .source-name{background:#111b25}
+.source-time{display:block;color:var(--muted);font-size:9px;font-weight:500;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.quote-cell{text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;font-size:12px;font-variant-numeric:tabular-nums}
+.quote-cell .buy{color:var(--bid);font-weight:650;margin-right:10px}
+.quote-cell .sell{color:var(--ask);font-weight:650}
+.quote-status{text-align:center;color:var(--muted);font-size:9px;line-height:1.35}
+.quote-status.ok{color:var(--accent)}
+.quote-status.partial{color:var(--warn)}
+.quote-status.missing{color:var(--danger)}
 
 /* ── Tab Bar ── */
-.tab-bar{display:flex;background:#0f3460;margin:6px 8px 0;border-radius:6px 6px 0 0;overflow:hidden}
+.tab-bar{display:flex;background:#0f3460;margin:12px 0 0;border-radius:6px 6px 0 0;overflow:hidden}
 .tab-btn{flex:1;padding:10px;text-align:center;font-size:14px;cursor:pointer;border:none;background:transparent;color:#888;transition:all .2s}
 .tab-btn.active{background:#1a1a2e;color:#fff;font-weight:600}
 .tab-btn:hover{color:#ddd}
 
 /* ── Tab Content ── */
-.tab-content{background:#1a1a2e;margin:0 8px 8px;border-radius:0 0 6px 6px;padding:14px;min-height:300px}
+.tab-content{background:#1a1a2e;margin:0;border-radius:0 0 6px 6px;padding:14px;min-height:300px}
 .tab-pane{display:none}
 .tab-pane.active{display:block}
 
@@ -77,8 +99,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 
 /* ── Responsive ── */
 @media(max-width:640px){
-  .quote-matrix{min-width:700px}
-  .quote-head,.source-row{grid-template-columns:78px repeat(4,minmax(120px,1fr)) 78px}
+  .app-shell{width:min(calc(100% - 20px),1400px);padding-top:10px}
+  .terminal-header{align-items:flex-start;flex-direction:column}
+  .terminal-state{align-items:flex-start}
+  .panel-heading{align-items:flex-start;flex-direction:column;padding:12px 0}
+  .quote-matrix{min-width:900px}
+  .quote-head,.source-row{grid-template-columns:130px repeat(4,minmax(145px,1fr)) 90px}
   .source-name{padding-left:8px}
   .form-row{gap:6px}
   .form-row select,.form-row input{font-size:13px;padding:6px 8px}
@@ -87,22 +113,44 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 </style>
 </head>
 <body>
+<main class="app-shell">
 
 <!-- Header -->
-<div class="header">
-  <h1>🔄 实时外汇监控系统</h1>
-  <span class="update-time" id="updateTime">加载中...</span>
-</div>
+<header class="terminal-header">
+  <div class="terminal-brand">
+    <div class="brand-mark" aria-hidden="true">FX</div>
+    <div class="brand-copy">
+      <h1>外汇报价工作台</h1>
+      <p>FOREIGN EXCHANGE MONITOR</p>
+    </div>
+  </div>
+  <div class="terminal-state">
+    <div class="live-status"><span class="status-dot" aria-hidden="true"></span><span>实时采集中</span></div>
+    <span class="update-time" id="updateTime">最后更新 --</span>
+  </div>
+</header>
 
 <!-- Quotes -->
-<div class="quotes" id="quotesContainer">
-  <div class="loading">加载报价中...</div>
-</div>
+<section class="panel quote-panel" aria-labelledby="quotePanelTitle">
+  <div class="panel-heading">
+    <div class="panel-title">
+      <span class="panel-kicker">MARKET MATRIX</span>
+      <h2 id="quotePanelTitle">实时银行报价</h2>
+    </div>
+    <div class="quote-legend" aria-label="报价颜色图例">
+      <span class="legend-bid"><i class="legend-swatch" aria-hidden="true"></i>买入</span>
+      <span class="legend-ask"><i class="legend-swatch" aria-hidden="true"></i>卖出</span>
+    </div>
+  </div>
+  <div class="quotes" id="quotesContainer">
+    <div class="loading">加载报价中...</div>
+  </div>
+</section>
 
 <!-- Tab Bar -->
 <div class="tab-bar">
-  <button class="tab-btn active" data-tab="entry">📝 录入报价</button>
-  <button class="tab-btn" data-tab="chart">📊 历史图表</button>
+  <button class="tab-btn active" data-tab="entry">录入报价</button>
+  <button class="tab-btn" data-tab="chart">历史图表</button>
 </div>
 
 <!-- Tab Content -->
@@ -137,7 +185,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
     </div>
     <div class="result-box" id="entryResult">录入后显示计算结果</div>
     <div class="recent">
-      <div class="recent-title">📋 最近录入：</div>
+      <div class="recent-title">最近录入：</div>
       <div id="entryRecent">暂无录入记录</div>
     </div>
   </div>
@@ -163,6 +211,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
   </div>
 
 </div>
+</main>
 
 <script>
 // ── 全局状态 ──
@@ -188,7 +237,7 @@ const BANK_NAMES = [
 
 function renderQuotes(cfets, banks, timestamp) {
   const el = document.getElementById('quotesContainer');
-  document.getElementById('updateTime').textContent = '最后更新: ' + (timestamp || '--');
+  document.getElementById('updateTime').textContent = '最后更新 ' + (timestamp || '--');
   let html = '<div class="quote-matrix" role="table" aria-label="外汇买入卖出报价矩阵"><div class="quote-head" role="row">'
     + '<div class="source-name" role="columnheader">数据来源</div>'
     + PAIRS.map(pair => '<div role="columnheader"><b>' + pair + '</b><span class="buy-label">买入</span><span class="sell-label">卖出</span></div>').join('')
@@ -215,16 +264,18 @@ function renderQuotes(cfets, banks, timestamp) {
         + '</span><span class="sell">' + ask + '</span></div>';
     }
 
-    let statusClass = 'ok';
-    let statusText = '市场基准';
+    let sourceMeta = '市场中间价';
     if (source !== 'CFETS' && sourceTime) {
-      statusText = '正常<br>' + sourceTime.slice(11, 16);
+      sourceMeta = '源 ' + sourceTime.slice(11, 16);
     } else if (source !== 'CFETS' && fetchTime) {
       const label = fetchTime === timestamp ? '本轮抓取' : '上次抓取';
-      statusText = label + '<br>' + fetchTime.slice(11, 16);
+      sourceMeta = label + ' ' + fetchTime.slice(11, 16);
     } else if (source !== 'CFETS') {
-      statusText = '有真实数据';
+      sourceMeta = validPairCount === 0 ? '等待数据' : '真实报价';
     }
+
+    let statusClass = 'ok';
+    let statusText = source === 'CFETS' ? '市场基准' : '正常';
     if (validPairCount === 0) {
       statusClass = 'missing';
       statusText = '暂无新数据';
@@ -232,8 +283,9 @@ function renderQuotes(cfets, banks, timestamp) {
       statusClass = 'partial';
       statusText = '部分缺失';
     }
-    html += '<div class="source-row ' + (source === 'CFETS' ? 'cfets' : '') + '" role="row">'
-      + '<div class="source-name" role="rowheader">' + source + '</div>' + cells
+    html += '<div class="source-row' + (source === 'CFETS' ? ' cfets' : '') + '" role="row" data-source="' + source + '">'
+      + '<div class="source-name" role="rowheader"><span>' + source + '</span><small class="source-time">'
+      + sourceMeta + '</small></div>' + cells
       + '<div class="quote-status ' + statusClass + '" role="cell">' + statusText + '</div></div>';
   }
   el.innerHTML = html + '</div>';

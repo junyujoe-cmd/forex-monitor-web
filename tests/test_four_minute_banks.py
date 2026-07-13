@@ -491,6 +491,24 @@ class QuoteMatrixFrontendTests(unittest.TestCase):
         self.assertIn("quote-matrix", self.html)
         self.assertIn("quote-status", self.html)
 
+    def test_institutional_shell_brand_and_palette(self):
+        for marker in [
+            'class="app-shell"',
+            'class="terminal-header"',
+            'class="brand-mark"',
+            "外汇报价工作台",
+            "FOREIGN EXCHANGE MONITOR",
+            "实时采集中",
+            "--page:#070b10",
+            "--panel:#0e1620",
+            "--accent:#56d8b3",
+            "max-width:1400px",
+            "font-variant-numeric:tabular-nums",
+        ]:
+            self.assertIn(marker, self.html)
+        for emoji in ["🔄", "📝", "📊", "📋"]:
+            self.assertNotIn(emoji, self.html)
+
     def test_entry_and_chart_selectors_contain_new_banks(self):
         for bank in ["工商银行", "农业银行", "邮储银行", "民生银行"]:
             self.assertEqual(self.html.count(f"<option>{bank}</option>"), 2)
@@ -530,11 +548,19 @@ process.stdout.write(elements.quotesContainer.innerHTML);
 
     @staticmethod
     def source_row(rendered, source):
-        marker = f'role="rowheader">{source}</div>'
+        marker = f'data-source="{source}"'
         marker_pos = rendered.index(marker)
         row_start = rendered.rfind('<div class="source-row', 0, marker_pos)
         row_end = rendered.find('<div class="source-row', marker_pos)
         return rendered[row_start:row_end if row_end >= 0 else len(rendered)]
+
+    @unittest.skipUnless(NODE_BINARY, "Node.js is required for dynamic frontend rendering")
+    def test_dynamic_matrix_keeps_nine_sources_and_thirty_six_cells(self):
+        rendered = self.render_quotes({}, {}, "2026-07-13 12:30:00")
+
+        self.assertEqual(rendered.count('class="source-row'), 9)
+        self.assertEqual(rendered.count('class="quote-cell"'), 36)
+        self.assertEqual(rendered.count('class="source-time"'), 9)
 
     @unittest.skipUnless(NODE_BINARY, "Node.js is required for dynamic frontend rendering")
     def test_non_finite_and_partial_quotes_render_truthful_states(self):
@@ -563,7 +589,9 @@ process.stdout.write(elements.quotesContainer.innerHTML);
         self.assertIn("部分缺失", self.source_row(rendered, "CFETS"))
         self.assertIn("部分缺失", self.source_row(rendered, "工商银行"))
         self.assertIn("暂无新数据", self.source_row(rendered, "农业银行"))
-        self.assertIn("正常<br>12:30", self.source_row(rendered, "民生银行"))
+        minsheng_row = self.source_row(rendered, "民生银行")
+        self.assertIn('<small class="source-time">源 12:30</small>', minsheng_row)
+        self.assertIn(">正常</div>", minsheng_row)
         self.assertIn(
             'aria-label="农业银行 USDCNY 买入 --，卖出 6.8000"',
             rendered,
