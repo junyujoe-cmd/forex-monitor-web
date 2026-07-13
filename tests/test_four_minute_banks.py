@@ -442,5 +442,31 @@ class NewBankPipelineTests(unittest.TestCase):
         self.assertTrue(any(row[2] == 6.76 and row[3] == 6.79 for row in rows))
 
 
+class QuoteMatrixFrontendTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.html = (Path(__file__).parents[1] / "static" / "index.html").read_text()
+
+    def test_matrix_contains_all_nine_sources(self):
+        expected = [
+            "CFETS", "中国银行", "招商银行", "建设银行", "杭州银行",
+            "工商银行", "农业银行", "邮储银行", "民生银行",
+        ]
+        for source in expected:
+            self.assertIn(source, self.html)
+        self.assertIn("quote-matrix", self.html)
+        self.assertIn("quote-status", self.html)
+
+    def test_entry_and_chart_selectors_contain_new_banks(self):
+        for bank in ["工商银行", "农业银行", "邮储银行", "民生银行"]:
+            self.assertEqual(self.html.count(f"<option>{bank}</option>"), 2)
+
+    def test_matrix_has_no_repeated_midpoint_cost_line(self):
+        self.assertNotIn("pair-card .costs", self.html)
+        self.assertNotIn("市场' + mc + ' 银行' + bc", self.html)
+        self.assertIn("暂无新数据", self.html)
+        self.assertIn("上次抓取", self.html)
+
+
 if __name__ == "__main__":
     unittest.main()
