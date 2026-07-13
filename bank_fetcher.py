@@ -1,3 +1,5 @@
+import json
+import math
 import time
 import requests
 import pandas as pd
@@ -244,4 +246,215 @@ def fetch_hzb_rates():
         return result if result else None
     except Exception as e:
         print(f"HZB fetch error: {e}")
+        return None
+
+
+# ── 分钟级银行官方接口 ─────────────────────────────────────────
+
+MINUTE_BANK_CURRENCY_MAP = {
+    "USD": "USDCNY",
+    "EUR": "EURCNY",
+    "HKD": "HKDCNY",
+    "JPY": "JPYCNY",
+}
+
+
+def _normalize_minute_rate(bid_raw, ask_raw, source_time, divisor=1):
+    """校验官方时间和价格，并统一为页面使用的报价格式。"""
+    try:
+        now = datetime.now(source_time.tzinfo) if source_time.tzinfo else datetime.now()
+        if now - source_time > timedelta(minutes=3):
+            return None
+        bid = float(bid_raw) / divisor
+        ask = float(ask_raw) / divisor
+        if not math.isfinite(bid) or not math.isfinite(ask):
+            return None
+        if bid <= 0 or ask <= 0 or bid > ask:
+            return None
+        return {
+            "bid": round(bid, 4),
+            "ask": round(ask, 4),
+            "mid": round((bid + ask) / 2, 4),
+            "source_time": source_time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+def fetch_icbc_rates():
+    """从工商银行官方接口获取分钟级外汇牌价。"""
+    try:
+        resp = requests.post(
+            "https://papi.icbc.com.cn/exchanges/ns/getLatest",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+        if not isinstance(payload, dict) or str(payload.get("code")) != "0":
+            return None
+        rows = payload.get("data")
+        if not isinstance(rows, list):
+            return None
+
+        result = {}
+        for row in rows:
+            try:
+                pair = MINUTE_BANK_CURRENCY_MAP.get(row.get("currencyENName"))
+                if not pair:
+                    continue
+                source_time = datetime.strptime(
+                    f'{row.get("publishDate")} {row.get("publishTime")}',
+                    "%Y-%m-%d %H:%M:%S",
+                )
+                divisor = 1 if pair == "JPYCNY" else 100
+                rate = _normalize_minute_rate(
+                    row.get("foreignBuy"),
+                    row.get("foreignSell"),
+                    source_time,
+                    divisor,
+                )
+                if rate:
+                    result[pair] = rate
+            except (AttributeError, TypeError, ValueError):
+                continue
+        return result or None
+    except Exception as e:
+        print(f"ICBC fetch error: {e}")
+        return None
+
+
+def fetch_abc_rates():
+    """从农业银行官方接口获取分钟级外汇牌价。"""
+    currency_map = {
+        "14": "USDCNY",
+        "38": "EURCNY",
+        "13": "HKDCNY",
+        "27": "JPYCNY",
+    }
+    try:
+        resp = requests.get(
+            "https://www.abchina.com.cn/creditCardService/DataService/ExchangeRate",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+        if not isinstance(payload, dict) or str(payload.get("ErrorCode")) != "0":
+            return None
+        data = payload.get("Data")
+        rows = data.get("Table") if isinstance(data, dict) else None
+        if not isinstance(rows, list):
+            return None
+
+        result = {}
+        for row in rows:
+            try:
+                pair = currency_map.get(str(row.get("CurrId")))
+                if not pair:
+                    continue
+                source_text = str(row.get("PublishTime"))
+                source_time = datetime.fromisoformat(source_text.replace("Z", "+00:00"))
+                divisor = 1 if pair == "JPYCNY" else 100
+                rate = _normalize_minute_rate(
+                    row.get("BuyingPrice"),
+                    row.get("SellPrice"),
+                    source_time,
+                    divisor,
+                )
+                if rate:
+                    result[pair] = rate
+            except (AttributeError, TypeError, ValueError):
+                continue
+        return result or None
+    except Exception as e:
+        print(f"ABC fetch error: {e}")
+        return None
+
+
+def fetch_psbc_rates():
+    """从邮储银行官方 JSONP 接口获取分钟级外汇牌价。"""
+    try:
+        resp = requests.get(
+            "https://s.psbc.com/portal/PsbcService/foreignexchange/curr?callback=cb",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        text = resp.text.strip().rstrip(";")
+        if not text.startswith("cb(") or not text.endswith(")"):
+            return None
+        payload = json.loads(text[3:-1])
+        if not isinstance(payload, dict) or str(payload.get("retCode")) != "000":
+            return None
+        rows = payload.get("resultList")
+        if not isinstance(rows, list):
+            return None
+
+        result = {}
+        for row in rows:
+            try:
+                pair = MINUTE_BANK_CURRENCY_MAP.get(row.get("cur"))
+                if not pair:
+                    continue
+                source_time = datetime.strptime(
+                    f'{row.get("effect_date")} {row.get("effect_time")}',
+                    "%Y%m%d %H%M%S",
+                )
+                divisor = 1 if pair == "JPYCNY" else 100
+                rate = _normalize_minute_rate(
+                    row.get("fe_buy_prc"),
+                    row.get("fe_sell_prc"),
+                    source_time,
+                    divisor,
+                )
+                if rate:
+                    result[pair] = rate
+            except (AttributeError, TypeError, ValueError):
+                continue
+        return result or None
+    except Exception as e:
+        print(f"PSBC fetch error: {e}")
+        return None
+
+
+def fetch_cmbc_rates():
+    """从民生银行官方接口获取分钟级外汇牌价。"""
+    try:
+        resp = requests.post(
+            "https://www.cmbc.com.cn/gw/po_web/queryExRateByForex.do",
+            data={"cxfg": "1", "domesticCurrency": "RMB"},
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+        if not isinstance(payload, dict):
+            return None
+        return_code = payload.get("returnCode")
+        if not isinstance(return_code, dict) or return_code.get("type") != "S":
+            return None
+        rows = payload.get("result")
+        if not isinstance(rows, list):
+            return None
+
+        result = {}
+        for row in rows:
+            try:
+                pair = MINUTE_BANK_CURRENCY_MAP.get(row.get("foreignCurrency"))
+                if not pair:
+                    continue
+                source_time = datetime.fromisoformat(str(row.get("updateTime")))
+                rate = _normalize_minute_rate(
+                    row.get("buyPrice"),
+                    row.get("sellPrice"),
+                    source_time,
+                )
+                if rate:
+                    result[pair] = rate
+            except (AttributeError, TypeError, ValueError):
+                continue
+        return result or None
+    except Exception as e:
+        print(f"CMBC fetch error: {e}")
         return None
