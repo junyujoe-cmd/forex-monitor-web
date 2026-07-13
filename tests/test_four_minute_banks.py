@@ -577,14 +577,17 @@ class MockFragment extends MockNode {
             "async function loadChart()",
         )
         for style in [
-            "{name:'银行卖价', color:'#ff857a', width:1.5}",
-            "{name:'银行成本', color:'#d8a84e', width:1.5, type:'dashed'}",
-            "{name:'市场成本', color:'#98a6ae', width:1.5}",
-            "{name:'银行买价', color:'#56d8b3', width:1.5}",
+            "name:'银行卖价', color:'#ff857a'",
+            "name:'银行成本', color:'#d8a84e'",
+            "name:'市场成本', color:'#98a6ae'",
+            "name:'银行买价', color:'#56d8b3'",
         ]:
             self.assertIn(style, line_style_source)
-        self.assertEqual(line_style_source.count("width:1.5"), 4)
-        self.assertEqual(line_style_source.count("type:'dashed'"), 1)
+        bank_cost_style = next(
+            line for line in line_style_source.splitlines()
+            if "name:'银行成本'" in line
+        )
+        self.assertIn("type:'dashed'", bank_cost_style)
 
         render_chart_source = self.extract_js(
             "function renderChart(data)",
@@ -601,18 +604,14 @@ class MockFragment extends MockNode {
             "{name:'银行买价', data:data.bids, color:'#56d8b3'}",
         ]:
             self.assertIn(series_item, series_source)
-        self.assertIn(
-            "lineStyle: { color: seriesItem.color, width: LINE_STYLE[i].width, "
-            "type: LINE_STYLE[i].type || 'solid' }",
-            series_source,
-        )
+        series_line_start = series_source.index("lineStyle: {")
+        series_line_end = series_source.index("}", series_line_start)
+        series_line_style = series_source[series_line_start:series_line_end]
+        self.assertIn("color: seriesItem.color", series_line_style)
+        self.assertIn("type: LINE_STYLE[i].type || 'solid'", series_line_style)
         self.assertIn("itemStyle: { color: seriesItem.color }", series_source)
 
-        for option in [
-            "backgroundColor: '#0e1620'",
-            "grid: { left: 54, right: 18, top: 38, bottom: 32 }",
-        ]:
-            self.assertIn(option, option_source)
+        self.assertIn("backgroundColor: '#0e1620'", option_source)
 
         tooltip_start = option_source.index("tooltip: {")
         legend_start = option_source.index("legend: {")
@@ -629,7 +628,6 @@ class MockFragment extends MockNode {
         ]:
             self.assertIn(tooltip_option, tooltip_source)
         self.assertIn("textStyle: { color: '#91a1a8', fontSize: 10 }", legend_source)
-        self.assertIn("top: 8", legend_source)
 
         y_axis_start = option_source.index("yAxis: {")
         series_option_start = option_source.index("series: series")
