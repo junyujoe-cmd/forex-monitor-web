@@ -572,35 +572,139 @@ class MockFragment extends MockNode {
             self.assertNotIn(emoji, self.html)
 
     def test_chart_uses_terminal_palette_and_one_resize_listener(self):
-        for marker in [
-            "{name:'银行卖价', color:'#ff857a'",
-            "{name:'银行成本', color:'#d8a84e'",
-            "{name:'市场成本', color:'#98a6ae'",
-            "{name:'银行买价', color:'#56d8b3'",
-            "backgroundColor: '#0e1620'",
-            "backgroundColor: 'rgba(14,22,32,.96)'",
+        line_style_source = self.extract_js(
+            "const LINE_STYLE = [",
+            "async function loadChart()",
+        )
+        for style in [
+            "{name:'银行卖价', color:'#ff857a', width:1.5}",
+            "{name:'银行成本', color:'#d8a84e', width:1.5, type:'dashed'}",
+            "{name:'市场成本', color:'#98a6ae', width:1.5}",
+            "{name:'银行买价', color:'#56d8b3', width:1.5}",
         ]:
-            self.assertIn(marker, self.html)
+            self.assertIn(style, line_style_source)
+        self.assertEqual(line_style_source.count("width:1.5"), 4)
+        self.assertEqual(line_style_source.count("type:'dashed'"), 1)
+
+        render_chart_source = self.extract_js(
+            "function renderChart(data)",
+            "// ── 录入报价 ──",
+        )
+        series_start = render_chart_source.index("const series = [")
+        option_start = render_chart_source.index("chartInstance.setOption({")
+        series_source = render_chart_source[series_start:option_start]
+        option_source = render_chart_source[option_start:]
+        for series_item in [
+            "{name:'银行卖价', data:data.asks, color:'#ff857a'}",
+            "{name:'银行成本', data:data.costs, color:'#d8a84e'}",
+            "{name:'市场成本', data:data.mids, color:'#98a6ae'}",
+            "{name:'银行买价', data:data.bids, color:'#56d8b3'}",
+        ]:
+            self.assertIn(series_item, series_source)
+        self.assertIn(
+            "lineStyle: { color: seriesItem.color, width: LINE_STYLE[i].width, "
+            "type: LINE_STYLE[i].type || 'solid' }",
+            series_source,
+        )
+        self.assertIn("itemStyle: { color: seriesItem.color }", series_source)
+
+        for option in [
+            "backgroundColor: '#0e1620'",
+            "grid: { left: 54, right: 18, top: 38, bottom: 32 }",
+        ]:
+            self.assertIn(option, option_source)
+
+        tooltip_start = option_source.index("tooltip: {")
+        legend_start = option_source.index("legend: {")
+        x_axis_start = option_source.index("xAxis: {")
+        tooltip_source = option_source[tooltip_start:legend_start]
+        legend_source = option_source[legend_start:x_axis_start]
+        for tooltip_option in [
+            "backgroundColor: 'rgba(14,22,32,.96)'",
+            "borderColor: '#2a3b47'",
+            "textStyle: { color: '#dce5e8', fontSize: 12 }",
+            "const colors = ['#ff857a','#d8a84e','#98a6ae','#56d8b3'];",
+            "if (src === '精确') label += ' <span style=\"color:#56d8b3\">●</span>';",
+            "else if (src === '推导') label += ' <span style=\"color:#d8a84e\">○</span>';",
+        ]:
+            self.assertIn(tooltip_option, tooltip_source)
+        self.assertIn("textStyle: { color: '#91a1a8', fontSize: 10 }", legend_source)
+        self.assertIn("top: 8", legend_source)
+
+        y_axis_start = option_source.index("yAxis: {")
+        series_option_start = option_source.index("series: series")
+        x_axis_source = option_source[x_axis_start:y_axis_start]
+        y_axis_source = option_source[y_axis_start:series_option_start]
+        for axis_source in [x_axis_source, y_axis_source]:
+            self.assertIn(
+                "axisLine: { lineStyle: { color: '#2c3b46' } }",
+                axis_source,
+            )
+            self.assertIn("axisLabel: { color: '#7f9098'", axis_source)
+            self.assertIn(
+                "splitLine: { show: true, lineStyle: { color: '#192833', "
+                "width: 0.5 } }",
+                axis_source,
+            )
+        self.assertIn("formatter: function(v) { return v.toFixed(4); }", y_axis_source)
+        self.assertIn(
+            "dataZoom: [\n"
+            "      { type: 'inside', start: 0, end: 100 },\n"
+            "    ]",
+            option_source,
+        )
 
         resize_listener = "window.addEventListener('resize'"
         self.assertEqual(self.html.count(resize_listener), 1)
-        chart_state = self.html.index("let chartInstance = null;")
-        listener_position = self.html.index(resize_listener)
-        render_chart = self.html.index("function renderChart(data)")
-        self.assertLess(chart_state, listener_position)
-        self.assertLess(listener_position, render_chart)
+        self.assertIn(
+            "let chartInstance = null;\n"
+            "window.addEventListener('resize', () => { if (chartInstance) "
+            "chartInstance.resize(); });",
+            self.html,
+        )
+        self.assertNotIn(resize_listener, render_chart_source)
 
     def test_focus_and_mobile_layout_keep_scroll_inside_quote_matrix(self):
-        for marker in [
-            ":focus-visible",
-            "overflow-x:hidden",
-            ".quotes{overflow-x:auto}",
-            "@media(max-width:640px)",
+        focus_rule = (
+            ":is(button,select,input):focus-visible{outline:2px solid "
+            "var(--accent);outline-offset:2px}"
+        )
+        self.assertIn(focus_rule, self.html)
+
+        media_860_start = self.html.index("@media(max-width:860px){")
+        media_640_start = self.html.index("@media(max-width:640px){")
+        media_860 = self.html[media_860_start:media_640_start]
+        for rule in [
             ".entry-layout{grid-template-columns:1fr}",
-            ".app-shell{width:calc(100% - 16px)",
+            ".form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}",
+            ".chart-controls{grid-template-columns:repeat(3,minmax(0,1fr))}",
         ]:
-            self.assertIn(marker, self.html)
+            self.assertIn(rule, media_860)
+
+        media_640 = self.html[media_640_start:self.html.index("</style>")]
+        for rule in [
+            ".app-shell{width:calc(100% - 16px);margin:12px auto 24px;",
+            ".terminal-header{align-items:flex-start;flex-direction:column}",
+            ".live-meta{width:100%;align-items:center;flex-direction:row;"
+            "justify-content:space-between}",
+            ".panel-heading{min-height:0;padding:10px 0}",
+            ".quote-matrix{min-width:820px}",
+            ".quote-head,.source-row{grid-template-columns:108px "
+            "repeat(4,minmax(142px,1fr)) 86px}",
+            ".tab-content{padding:10px}",
+            ".entry-layout{grid-template-columns:1fr}",
+            ".entry-panel,.recent-panel{padding:14px}",
+            ".form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}",
+            ".field-wide{grid-column:span 2}",
+            ".chart-controls{grid-template-columns:1fr}",
+            "#chart{height:330px}",
+        ]:
+            self.assertIn(rule, media_640)
+
+        self.assertRegex(self.html, r"body\{[^}]*overflow-x:hidden[^}]*\}")
+        self.assertEqual(self.html.count(".quotes{overflow-x:auto}"), 1)
         self.assertEqual(self.html.count("overflow-x:auto"), 1)
+        self.assertNotIn("@media(max-width:600px)", self.html)
 
     def test_entry_and_chart_selectors_contain_new_banks(self):
         for bank in ["工商银行", "农业银行", "邮储银行", "民生银行"]:
