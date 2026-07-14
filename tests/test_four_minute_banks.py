@@ -719,6 +719,83 @@ class MockFragment extends MockNode {
         self.assertIn("function selectPair(pair)", source)
         self.assertRegex(source, r"const\s+pair\s*=\s*activePair")
 
+    @unittest.skipUnless(NODE_BINARY, "Node.js is required for pair tab behavior")
+    def test_pair_tabs_use_roving_tabindex_and_arrow_navigation(self):
+        source = self.extract_js(
+            'const PAIRS = ["USDCNY"',
+            "function renderQuoteSkeleton()",
+        )
+        self.assertIn("button.addEventListener('keydown'", source)
+        result = self.run_node_json(self.NODE_DOM_PRELUDE + """
+const elements = {
+  pairTabs: new MockNode(),
+  entryPair: Object.assign(new MockNode('input'), { value: 'USDCNY' }),
+  chartPair: Object.assign(new MockNode('select'), { value: 'USDCNY' }),
+  chart: new MockNode(),
+  activeEntryPair: new MockNode()
+};
+const document = {
+  activeElement: null,
+  getElementById(id) { return elements[id]; },
+  createElement(tagName) {
+    const node = new MockNode(tagName);
+    node.focus = () => { document.activeElement = node; };
+    return node;
+  }
+};
+let chartRequestId = 0;
+let chartInstance = null;
+let loadChartCalls = 0;
+function invalidateEntrySubmission() {}
+function loadChart() { loadChartCalls += 1; }
+""" + source + """
+renderPairTabs();
+elements.pairTabs.children[0].focus();
+let prevented = 0;
+elements.pairTabs.children[0].listeners.keydown({
+  key: 'ArrowRight',
+  preventDefault() { prevented += 1; }
+});
+const afterRight = {
+  pair: activePair,
+  tabIndexes: elements.pairTabs.children.map(button => button.tabIndex),
+  focusedPair: document.activeElement.dataset.pair
+};
+renderPairTabs();
+const afterRerender = document.activeElement.dataset.pair;
+elements.pairTabs.children[1].listeners.keydown({
+  key: 'ArrowLeft',
+  preventDefault() { prevented += 1; }
+});
+process.stdout.write(JSON.stringify({
+  afterRight,
+  afterRerender,
+  afterLeft: {
+    pair: activePair,
+    tabIndexes: elements.pairTabs.children.map(button => button.tabIndex),
+    focusedPair: document.activeElement.dataset.pair
+  },
+  prevented,
+  loadChartCalls
+}));
+""")
+
+        self.assertEqual(result, {
+            "afterRight": {
+                "pair": "EURCNY",
+                "tabIndexes": [-1, 0, -1, -1],
+                "focusedPair": "EURCNY",
+            },
+            "afterRerender": "EURCNY",
+            "afterLeft": {
+                "pair": "USDCNY",
+                "tabIndexes": [0, -1, -1, -1],
+                "focusedPair": "USDCNY",
+            },
+            "prevented": 2,
+            "loadChartCalls": 2,
+        })
+
     def test_institutional_shell_brand_and_palette(self):
         for marker in [
             'class="app-shell"',
@@ -730,7 +807,7 @@ class MockFragment extends MockNode {
             "--page:#070b10",
             "--panel:#0e1620",
             "--accent:#56d8b3",
-            "max-width:1400px",
+            "width:min(100%,1400px)",
             "font-variant-numeric:tabular-nums",
         ]:
             self.assertIn(marker, self.html)
@@ -1069,47 +1146,37 @@ function renderChart(data) {
             "chartState": {"className": "chart-success", "text": "HKDCNY"},
         })
 
-    def test_focus_and_existing_workspace_responsive_rules_are_preserved(self):
-        style_source = self.html[
-            self.html.index("<style>") + len("<style>"):
-            self.html.index("</style>")
-        ]
-        normalized_css = re.sub(r"\s+", "", style_source)
-        focus_rule = (
-            ":is(button,select,input):focus-visible{outline:2px solid "
-            "var(--accent);outline-offset:2px}"
-        )
-        self.assertIn(re.sub(r"\s+", "", focus_rule), normalized_css)
-
-        media_860_start = normalized_css.index("@media(max-width:860px){")
-        media_640_start = normalized_css.index("@media(max-width:640px){")
-        media_860 = normalized_css[media_860_start:media_640_start]
-        for rule in [
-            ".workbench{grid-template-columns:1fr}",
-            ".ticket-fields{grid-template-columns:repeat(2,minmax(0,1fr))}",
-            ".form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}",
-            ".chart-controls{grid-template-columns:repeat(3,minmax(0,1fr))}",
+    def test_premium_workbench_reduces_nested_card_noise(self):
+        for marker in [
+            ".terminal-header{min-height:44px",
+            ".bank-quote-board{display:grid;grid-template-columns:repeat(4",
+            ".workbench{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr)",
+            ".recent-activity{",
+            ".result-value{",
+            ":is(button,select,input):focus-visible{outline:2px solid var(--accent)",
         ]:
-            self.assertIn(rule, media_860)
+            self.assertIn(marker, self.html)
+        self.assertNotIn("border-radius:10px", self.html)
+        self.assertNotIn("box-shadow:0 8px", self.html)
 
-        media_640 = normalized_css[media_640_start:]
-        for rule in [
-            ".app-shell{width:calc(100%-16px);margin:12pxauto24px;",
-            ".terminal-header{align-items:flex-start;flex-direction:column}",
-            ".live-meta{width:100%;align-items:center;flex-direction:row;"
-            "justify-content:space-between}",
-            ".tab-content{padding:10px}",
+    def test_narrow_layout_stacks_workbench_without_page_overflow(self):
+        self.assertIn("@media(max-width:800px)", self.html)
+        media = self.html[self.html.index("@media(max-width:800px)"):]
+        for marker in [
+            ".bank-quote-board{grid-template-columns:repeat(2,minmax(0,1fr))}",
             ".workbench{grid-template-columns:1fr}",
-            ".deal-ticket,.result-summary{padding:14px}",
-            ".ticket-fields{grid-template-columns:1fr}",
-            ".form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}",
-            ".chart-controls{grid-template-columns:1fr}",
-            "#chart{height:330px}",
+            ".ticket-fields{grid-template-columns:1fr 1fr}",
         ]:
-            self.assertIn(rule, media_640)
+            self.assertIn(marker, media)
+        self.assertNotIn("min-width:820px", media)
+        self.assertRegex(self.html, r"body\{[^}]*overflow-x:hidden[^}]*\}")
 
-        self.assertRegex(normalized_css, r"body\{[^}]*overflow-x:hidden[^}]*\}")
-        self.assertNotIn("@media(max-width:600px)", normalized_css)
+    def test_chart_tab_and_chart_controls_are_preserved(self):
+        for marker in [
+            'id="entryTab"', 'id="chartTab"', 'id="tab-chart"',
+            'id="chartPair"', 'id="chartBank"', 'id="chartDate"', 'id="chart"',
+        ]:
+            self.assertIn(marker, self.html)
 
     def test_entry_and_chart_selectors_contain_new_banks(self):
         for bank in ["工商银行", "农业银行", "邮储银行", "民生银行"]:

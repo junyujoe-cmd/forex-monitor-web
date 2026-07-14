@@ -9,91 +9,90 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--page:#070b10;--panel:#0e1620;--panel-raised:#131e29;--line:#20303d;--line-soft:#182630;--text:#dce5e8;--muted:#7f9098;--accent:#56d8b3;--bid:#56d8b3;--ask:#ff857a;--warn:#d8a84e;--danger:#e77770}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--page);color:var(--text);min-height:100vh;overflow-x:hidden}
-.app-shell{width:min(calc(100% - 32px),1400px);max-width:1400px;margin:0 auto;padding:18px 0 28px}
+.app-shell{width:min(100%,1400px);margin:0 auto;padding:8px}
 
 /* ── Header ── */
-.terminal-header{min-height:76px;padding:15px 18px;border:1px solid var(--line);border-bottom-color:var(--accent);background:var(--panel);display:flex;justify-content:space-between;align-items:center;gap:18px}
-.terminal-brand{display:flex;align-items:center;gap:13px;min-width:0}
-.brand-mark{width:42px;height:42px;border:1px solid rgba(86,216,179,.58);background:rgba(86,216,179,.08);color:var(--accent);display:grid;place-items:center;font-size:15px;font-weight:800;letter-spacing:.08em}
-.brand-copy h1{font-size:18px;line-height:1.25;color:var(--text);font-weight:650;letter-spacing:.02em}
-.brand-copy p{margin-top:4px;color:var(--muted);font-size:10px;letter-spacing:.18em}
-.terminal-state{display:flex;align-items:flex-end;flex-direction:column;gap:6px;white-space:nowrap}
-.live-status{display:flex;align-items:center;gap:7px;color:var(--accent);font-size:12px}
-.status-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(86,216,179,.09)}
-.update-time{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.terminal-header{min-height:44px;padding:8px 13px;border:1px solid var(--line);border-bottom-color:var(--accent);background:var(--panel);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.terminal-brand{display:flex;align-items:center;gap:9px;min-width:0}
+.brand-mark{width:28px;height:28px;border:1px solid rgba(86,216,179,.58);background:rgba(86,216,179,.08);color:var(--accent);display:grid;place-items:center;font-size:10px;font-weight:800;letter-spacing:.08em}
+.brand-copy h1{font-size:13px;line-height:1.2;color:var(--text);font-weight:650;letter-spacing:.02em}
+.brand-copy p{margin-top:2px;color:var(--muted);font-size:7px;letter-spacing:.16em}
+.terminal-state{display:flex;align-items:flex-end;flex-direction:column;gap:3px;white-space:nowrap}
+.live-status{display:flex;align-items:center;gap:6px;color:var(--accent);font-size:10px}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px rgba(86,216,179,.09)}
+.update-time{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums}
 
 /* ── Panels ── */
 .panel{background:var(--panel);border:1px solid var(--line)}
 
 /* ── Focused Quote Board ── */
 .market-panel{margin-top:8px;background:rgba(14,22,32,.96);border:1px solid var(--line)}
-.market-head{min-height:45px;padding:0 12px;display:flex;align-items:center;justify-content:space-between;gap:14px;border-bottom:1px solid var(--line-soft)}
-.pair-tabs{display:flex;gap:3px}
-.pair-tab{appearance:none;padding:7px 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:11px;cursor:pointer}
+.market-head{min-height:38px;padding:0 10px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line-soft)}
+.pair-tabs{display:flex;max-width:100%;gap:2px;overflow-x:auto}
+.pair-tab{appearance:none;padding:6px 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:10px;cursor:pointer}
 .pair-tab.active{color:var(--text);border-bottom-color:var(--accent);background:#12211f}
 .market-reference{display:flex;align-items:baseline;gap:8px;color:var(--muted);font-size:9px}
 .market-reference strong{color:var(--text);font:700 14px ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
 .market-reference small{color:var(--muted)}
 .bank-quote-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
-.bank-quote{min-height:67px;padding:10px 11px;border-right:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)}
+.bank-quote{min-height:58px;padding:7px 10px;border-right:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)}
 .bank-quote:nth-child(4n){border-right:0}
 .bank-quote:nth-child(n+5){border-bottom:0}
 .bank-quote-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;color:var(--text);font-size:11px;font-weight:650}
 .bank-quote-head small{color:var(--muted);font-size:9px;font-weight:500;font-variant-numeric:tabular-nums}
 .bank-price-line,.bank-price-labels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;text-align:right}
-.bank-price-line{margin-top:7px;font:650 12px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;font-variant-numeric:tabular-nums}
+.bank-price-line{margin-top:4px;font:650 12px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;font-variant-numeric:tabular-nums}
 .bank-price-line .buy{color:var(--bid)}
 .bank-price-line .sell{color:var(--ask)}
 .bank-price-labels{margin-top:2px;color:var(--muted);font-size:8px}
-.quote-status{text-align:center;color:var(--muted);font-size:9px;line-height:1.35}
+.quote-status{text-align:center;color:var(--muted);font-size:8px;line-height:1.2}
 .quote-status.ok{color:var(--accent)}
 .quote-status.partial{color:var(--warn)}
 .quote-status.missing{color:var(--danger)}
 
 /* ── Quote Workspace ── */
-.workspace-panel{margin-top:12px;overflow:hidden}
-.workspace-tabs{display:flex;align-items:center;gap:2px;padding:0 14px;background:var(--panel-raised);border-bottom:1px solid var(--line)}
-.tab-btn{appearance:none;min-width:120px;padding:14px 16px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;letter-spacing:.03em;cursor:pointer;transition:color .14s ease,background-color .14s ease,border-color .14s ease}
+.workspace-panel{margin-top:8px;background:var(--panel);border:1px solid var(--line);overflow:hidden}
+.workspace-tabs{display:flex;align-items:center;min-height:34px;gap:2px;padding:0 10px;background:var(--panel-raised);border-bottom:1px solid var(--line)}
+.tab-btn{appearance:none;min-width:92px;min-height:34px;padding:7px 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:11px;font-weight:650;letter-spacing:.03em;cursor:pointer;transition:color .14s ease,background-color .14s ease,border-color .14s ease}
 .tab-btn:hover{color:var(--text);background:rgba(220,229,232,.03)}
 .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(86,216,179,.055)}
-.tab-content{padding:16px;min-height:330px}
+.tab-content{padding:0;min-height:0}
 .tab-pane{display:none}
 .tab-pane.active{display:block}
-.workbench{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,.55fr);gap:14px}
-.deal-ticket,.result-summary{padding:16px;border:1px solid var(--line-soft);background:var(--panel-raised)}
-.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.workbench{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr)}
+.deal-ticket{min-width:0;border-right:1px solid var(--line)}
+.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px 0}
 .section-heading span{color:var(--accent);font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace}
-.section-kicker{display:block;margin-bottom:6px;color:var(--muted);font-size:9px;line-height:1.2;letter-spacing:.17em}
 .deal-ticket h2,.chart-heading h2{color:var(--text);font-size:14px;font-weight:650}
-.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
-.ticket-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px;align-items:end}
-.field{display:flex;min-width:0;flex-direction:column;gap:6px;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.02em}
-.field select,.field input{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--line);border-radius:2px;background:var(--page);color:var(--text);font:inherit;font-size:13px;outline:none}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:10px}
+.ticket-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:8px 12px 7px;align-items:end}
+.field{display:flex;min-width:0;flex-direction:column;gap:4px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.02em}
+.field select,.field input{width:100%;min-height:34px;padding:6px 8px;border:1px solid var(--line);border-radius:2px;background:var(--page);color:var(--text);font:inherit;font-size:12px;outline:none}
 .field select:focus,.field input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(86,216,179,.08)}
 .field input::placeholder{color:var(--muted)}
 :is(button,select,input):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.btn{appearance:none;min-height:38px;padding:8px 17px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--page);font:inherit;font-size:12px;font-weight:750;cursor:pointer;transition:background-color .14s ease,color .14s ease}
+.btn{appearance:none;min-height:34px;padding:6px 14px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--page);font:inherit;font-size:11px;font-weight:750;cursor:pointer;transition:background-color .14s ease,color .14s ease}
 .btn:hover{background:#70e2c1}
 .time-mode{display:flex;gap:6px}
-.time-mode button{min-height:38px;padding:8px 12px;border:1px solid var(--line);background:var(--page);color:var(--muted);cursor:pointer}
+.time-mode button{min-height:34px;padding:6px 10px;border:1px solid var(--line);background:var(--page);color:var(--muted);cursor:pointer}
 .time-mode button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
-.historical-time-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.historical-time-fields{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .historical-time-fields[hidden]{display:none}
 .ticket-submit{justify-self:end}
-.entry-context{grid-column:1/-1;margin-top:12px;color:var(--muted);font-size:10px}
-.result-summary{display:grid;align-content:center;gap:10px;min-height:120px;color:var(--muted)}
-.result-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line-soft)}
+.entry-context{grid-column:1/-1;padding:0 12px 8px;color:var(--muted);font-size:9px}
+.result-summary{display:grid;min-width:0;align-content:center;min-height:104px;color:var(--muted)}
+.result-empty{padding:12px;text-align:center;font-size:10px}
+.result-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border-bottom:1px solid var(--line-soft)}
 .result-row:last-child{border-bottom:0}
 .result-row.positive .result-value{color:var(--bid)}
 .result-row.negative .result-value{color:var(--ask)}
 .result-row.neutral .result-value{color:var(--muted)}
-.result-value{font-weight:700;font-variant-numeric:tabular-nums}
-.recent-activity{display:flex;gap:18px;margin-top:12px;padding:12px 16px;overflow-x:auto;border:1px solid var(--line-soft);background:var(--panel-raised);color:var(--muted);font-size:11px}
-.recent-entry{padding:11px 0;border-bottom:1px solid var(--line-soft)}
-.recent-entry:first-child{padding-top:0}
-.recent-entry:last-child{border-bottom:0}
-.recent-entry-main{color:var(--text);font-size:12px;font-weight:650}
-.recent-entry-meta{margin-top:4px;color:var(--muted);font-size:10px;line-height:1.5;font-variant-numeric:tabular-nums}
+.result-value{font:800 23px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
+.recent-activity{display:flex;align-items:center;gap:18px;padding:8px 12px;border-top:1px solid var(--line-soft);white-space:nowrap;overflow:hidden;color:var(--muted);font-size:8px}
+.recent-entry{flex:0 0 auto;padding:0 18px 0 0;border-right:1px solid var(--line-soft)}
+.recent-entry:last-child{padding-right:0;border-right:0}
+.recent-entry-main{display:inline;color:var(--text);font-size:9px;font-weight:650}
+.recent-entry-meta{display:inline;margin-left:6px;color:var(--muted);font-size:8px;font-variant-numeric:tabular-nums}
 .inline-state{display:grid;min-height:112px;place-items:center;padding:20px;text-align:center;color:var(--muted);font-size:12px;line-height:1.6}
 .inline-error{color:var(--danger);border:1px solid rgba(231,119,112,.28);background:rgba(231,119,112,.045)}
 .skeleton-quote{pointer-events:none}
@@ -101,29 +100,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .skeleton-line+.skeleton-line{margin-left:10px;width:48px;background:var(--line-soft)}
 
 /* ── Chart ── */
-.chart-heading{margin-bottom:14px}
-.chart-controls{grid-template-columns:160px minmax(220px,320px) 170px;gap:12px;align-items:end;margin:0 0 14px}
-#chart{width:100%;height:440px;border:1px solid var(--line-soft);border-radius:10px;overflow:hidden}
+.chart-heading{padding:11px 12px 0}
+.chart-controls{grid-template-columns:160px minmax(220px,320px) 170px;gap:9px;align-items:end;margin:0;padding:9px 12px 10px}
+#chart{width:100%;height:400px;border-top:1px solid var(--line-soft);overflow:hidden}
 
 /* ── Loading ── */
 .loading{text-align:center;padding:40px;color:#666;font-size:14px}
 
 /* ── Responsive ── */
-@media(max-width:860px){
+@media(max-width:800px){
+  .app-shell{padding:6px}
+  .terminal-header{align-items:flex-start}
+  .market-head{align-items:flex-start;flex-direction:column;padding:9px 10px}
+  .bank-quote-board{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bank-quote:nth-child(2n){border-right:0}
+  .bank-quote:nth-child(n+5){border-bottom:1px solid var(--line-soft)}
+  .bank-quote:nth-child(n+7){border-bottom:0}
   .workbench{grid-template-columns:1fr}
-  .ticket-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .deal-ticket{border-right:0;border-bottom:1px solid var(--line)}
+  .ticket-fields{grid-template-columns:1fr 1fr}
+  .recent-activity{overflow-x:auto}
   .chart-controls{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
-@media(max-width:640px){
-  .app-shell{width:calc(100% - 16px);margin:12px auto 24px;padding:0}
+@media(max-width:560px){
   .terminal-header{align-items:flex-start;flex-direction:column}
   .live-meta{width:100%;align-items:center;flex-direction:row;justify-content:space-between}
-  .tab-content{padding:10px}
-  .workbench{grid-template-columns:1fr}
-  .deal-ticket,.result-summary{padding:14px}
   .ticket-fields{grid-template-columns:1fr}
-  .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .chart-controls{grid-template-columns:1fr}
   #chart{height:330px}
 }
@@ -217,7 +219,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 
     <div class="tab-pane" id="tab-chart" role="tabpanel" aria-labelledby="chartTab">
       <div class="chart-heading">
-        <span class="section-kicker">HISTORICAL TREND</span>
         <h2>历史报价图表</h2>
       </div>
       <div class="form-grid chart-controls">
@@ -293,17 +294,31 @@ function selectPair(pair) {
 
 function renderPairTabs() {
   const tabs = document.getElementById('pairTabs');
-  tabs.replaceChildren(...PAIRS.map(pair => {
+  const focusedPair = document.activeElement && document.activeElement.dataset
+    ? document.activeElement.dataset.pair : null;
+  const buttons = PAIRS.map(pair => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'pair-tab' + (pair === activePair ? ' active' : '');
     button.dataset.pair = pair;
+    button.tabIndex = pair === activePair ? 0 : -1;
     button.setAttribute('role', 'tab');
     button.setAttribute('aria-selected', String(pair === activePair));
     button.textContent = pair;
     button.addEventListener('click', () => selectPair(pair));
+    button.addEventListener('keydown', event => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      const step = event.key === 'ArrowRight' ? 1 : -1;
+      const nextIndex = (PAIRS.indexOf(pair) + step + PAIRS.length) % PAIRS.length;
+      selectPair(PAIRS[nextIndex]);
+    });
     return button;
-  }));
+  });
+  tabs.replaceChildren(...buttons);
+  if (PAIRS.includes(focusedPair)) {
+    buttons[PAIRS.indexOf(activePair)].focus();
+  }
 }
 
 function renderQuoteSkeleton() {
