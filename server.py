@@ -236,14 +236,22 @@ async def save_entry(
         hist = db.get_quotes_at_time(pair, bank, time)
         if not hist:
             return {"ok": False, "error": f"未找到 {time} 附近的报价数据，请换个时间"}
-        market_mid = hist["market_mid"] or 0
+        market_cost = (
+            hist.get("market_bid") if direction == "买入价"
+            else hist.get("market_ask")
+        )
+        if market_cost is None:
+            return {"ok": False, "error": f"{time} 附近报价缺少方向化市场价"}
         bank_bid = hist["bank_bid"]
         bank_ask = hist["bank_ask"]
         compare_time = hist["timestamp"][:16]
     else:
         market = cfets_cache.get(pair, {})
-        market_mid = market.get("mid", 0)
-        if not market_mid:
+        market_cost = (
+            market.get("bid") if direction == "买入价"
+            else market.get("ask")
+        )
+        if not market_cost:
             return {"ok": False, "error": "暂无市场数据，请等待报价刷新"}
         bq = bank_cache.get(bank, {}).get(pair, {})
         bank_bid = bq.get("bid") if bq else None
@@ -256,12 +264,12 @@ async def save_entry(
             "error": f"{bank} {pair} 暂无真实银行报价，请等待下一次更新",
         }
 
-    market_cost = market_mid
-
     if direction == "买入价":
+        bank_cost = bank_bid
         bp_vs_market = round((market_cost - quote) * 10000, 1)
         bp_vs_bank_price = round((quote - bank_bid) * 10000, 1)
     else:
+        bank_cost = bank_ask
         bp_vs_market = round((quote - market_cost) * 10000, 1)
         bp_vs_bank_price = round((bank_ask - quote) * 10000, 1)
 
@@ -269,9 +277,9 @@ async def save_entry(
         pair=pair, bank=bank, direction=direction,
         user_quote=quote,
         market_cost=market_cost,
-        bank_cost=0,
+        bank_cost=bank_cost,
         bp_vs_market=bp_vs_market,
-        bp_vs_bank=0,
+        bp_vs_bank=bp_vs_bank_price,
     )
 
     return {

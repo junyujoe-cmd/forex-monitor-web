@@ -313,6 +313,150 @@ class NewBankPipelineTests(unittest.TestCase):
         server.cfets_cache.clear()
         server.bank_cache.clear()
 
+    def test_current_entry_uses_directional_market_and_bank_prices(self):
+        server.cfets_cache["USDCNY"] = {
+            "bid": 6.7800,
+            "ask": 6.7820,
+            "mid": 6.7810,
+        }
+        server.bank_cache["工商银行"] = {
+            "USDCNY": {"bid": 6.7700, "ask": 6.7900},
+        }
+        fake_db = Mock()
+
+        with patch.object(server, "db", fake_db):
+            buy_result = asyncio.run(
+                server.save_entry("USDCNY", "工商银行", "买入价", 6.7750, None)
+            )
+            sell_result = asyncio.run(
+                server.save_entry("USDCNY", "工商银行", "卖出价", 6.7850, None)
+            )
+
+        self.assertEqual(buy_result["market_cost"], 6.7800)
+        self.assertEqual(buy_result["bp_vs_market"], 50.0)
+        self.assertEqual(buy_result["bp_vs_bank_price"], 50.0)
+        self.assertEqual(sell_result["market_cost"], 6.7820)
+        self.assertEqual(sell_result["bp_vs_market"], 30.0)
+        self.assertEqual(sell_result["bp_vs_bank_price"], 50.0)
+        self.assertEqual(
+            fake_db.save_user_entry.call_args_list[0].kwargs,
+            {
+                "pair": "USDCNY",
+                "bank": "工商银行",
+                "direction": "买入价",
+                "user_quote": 6.7750,
+                "market_cost": 6.7800,
+                "bank_cost": 6.7700,
+                "bp_vs_market": 50.0,
+                "bp_vs_bank": 50.0,
+            },
+        )
+        self.assertEqual(
+            fake_db.save_user_entry.call_args_list[1].kwargs,
+            {
+                "pair": "USDCNY",
+                "bank": "工商银行",
+                "direction": "卖出价",
+                "user_quote": 6.7850,
+                "market_cost": 6.7820,
+                "bank_cost": 6.7900,
+                "bp_vs_market": 30.0,
+                "bp_vs_bank": 50.0,
+            },
+        )
+
+    def test_directional_market_comparison_preserves_sign(self):
+        server.cfets_cache["USDCNY"] = {
+            "bid": 6.7800,
+            "ask": 6.7820,
+            "mid": 6.7810,
+        }
+        server.bank_cache["工商银行"] = {
+            "USDCNY": {"bid": 6.7700, "ask": 6.7900},
+        }
+
+        with patch.object(server, "db", Mock()):
+            buy_result = asyncio.run(
+                server.save_entry("USDCNY", "工商银行", "买入价", 6.7850, None)
+            )
+            sell_result = asyncio.run(
+                server.save_entry("USDCNY", "工商银行", "卖出价", 6.7820, None)
+            )
+
+        self.assertEqual(buy_result["bp_vs_market"], -50.0)
+        self.assertEqual(sell_result["bp_vs_market"], 0.0)
+
+    def test_historical_sell_uses_market_ask_and_actual_comparison_time(self):
+        fake_db = Mock()
+        fake_db.get_quotes_at_time.return_value = {
+            "timestamp": "2026-07-14 09:31:42",
+            "market_bid": 6.7800,
+            "market_ask": 6.7820,
+            "market_mid": 6.7810,
+            "bank_bid": 6.7700,
+            "bank_ask": 6.7900,
+        }
+
+        with patch.object(server, "db", fake_db):
+            result = asyncio.run(
+                server.save_entry(
+                    "USDCNY", "工商银行", "卖出价", 6.7850,
+                    "2026-07-14T09:30",
+                )
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["market_cost"], 6.7820)
+        self.assertEqual(result["bp_vs_market"], 30.0)
+        self.assertEqual(result["bp_vs_bank_price"], 50.0)
+        self.assertEqual(result["compare_time"], "2026-07-14 09:31")
+        fake_db.get_quotes_at_time.assert_called_once_with(
+            "USDCNY", "工商银行", "2026-07-14T09:30"
+        )
+        self.assertEqual(fake_db.save_user_entry.call_args.kwargs["bank_cost"], 6.7900)
+        self.assertEqual(fake_db.save_user_entry.call_args.kwargs["bp_vs_bank"], 50.0)
+
+    def test_historical_midpoint_without_directional_price_is_rejected(self):
+        fake_db = Mock()
+        fake_db.get_quotes_at_time.return_value = {
+            "timestamp": "2026-07-14 09:31:42",
+            "market_bid": None,
+            "market_ask": None,
+            "market_mid": 6.7810,
+            "bank_bid": 6.7700,
+            "bank_ask": 6.7900,
+        }
+
+        with patch.object(server, "db", fake_db):
+            result = asyncio.run(
+                server.save_entry(
+                    "USDCNY", "工商银行", "卖出价", 6.7850,
+                    "2026-07-14T09:30",
+                )
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertIn("缺少方向化市场价", result["error"])
+        fake_db.save_user_entry.assert_not_called()
+
+    def test_current_missing_directional_price_keeps_market_error(self):
+        server.cfets_cache["USDCNY"] = {"bid": 6.7800, "mid": 6.7810}
+        server.bank_cache["工商银行"] = {
+            "USDCNY": {"bid": 6.7700, "ask": 6.7900},
+        }
+        fake_db = Mock()
+
+        with patch.object(server, "db", fake_db):
+            result = asyncio.run(
+                server.save_entry("USDCNY", "工商银行", "卖出价", 6.7850, None)
+            )
+
+        self.assertEqual(
+            result,
+            {"ok": False, "error": "暂无市场数据，请等待报价刷新"},
+        )
+        fake_db.save_user_entry.assert_not_called()
+
     def test_current_new_bank_quote_is_saved_and_exposed(self):
         market = {"USDCNY": {"bid": 6.77, "ask": 6.78, "mid": 6.775}}
         icbc = {"USDCNY": {"bid": 6.76, "ask": 6.79, "mid": 6.775, "source_time": current_text()}}
