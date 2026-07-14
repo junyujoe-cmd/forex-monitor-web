@@ -24,40 +24,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 
 /* ── Panels ── */
 .panel{background:var(--panel);border:1px solid var(--line)}
-.quote-panel{margin-top:12px;padding:0 14px 14px}
-.panel-heading{min-height:57px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line-soft)}
-.panel-title{display:flex;align-items:baseline;gap:11px}
-.panel-heading h2{font-size:14px;font-weight:650;color:var(--text)}
-.panel-kicker{font-size:9px;letter-spacing:.16em;color:var(--muted)}
-.quote-legend{display:flex;align-items:center;gap:14px;font-size:11px}
-.quote-legend span{display:flex;align-items:center;gap:6px}
-.legend-swatch{width:10px;height:2px;background:currentColor}
-.legend-bid{color:var(--bid)}
-.legend-ask{color:var(--ask)}
 
-/* ── Quote Matrix ── */
-.quotes{overflow-x:auto}
-.quotes{padding-top:12px}
-.quote-matrix{min-width:900px;background:var(--panel);border:1px solid var(--line-soft);overflow:visible}
-.quote-head,.source-row{display:grid;grid-template-columns:150px repeat(4,minmax(145px,1fr)) 100px;align-items:center}
-.quote-head{min-height:42px;background:var(--panel-raised);color:var(--muted);font-size:10px;border-bottom:1px solid var(--line);text-align:center}
-.quote-head>div{padding:8px 6px}
-.quote-head .source-name{text-align:left;padding-left:14px;position:sticky;left:0;z-index:3;background:var(--panel-raised)}
-.quote-head b{display:block;color:var(--text);font-size:11px;font-weight:650;letter-spacing:.04em}
-.quote-head .buy-label{color:var(--bid);margin-right:9px}
-.quote-head .sell-label{color:var(--ask)}
-.source-row{min-height:54px;border-bottom:1px solid var(--line-soft);transition:background-color .14s ease}
-.source-row:last-child{border-bottom:0}
-.source-row.cfets{background:rgba(86,216,179,.045)}
-.source-row:hover{background:rgba(220,229,232,.035)}
-.source-name{font-size:12px;font-weight:700;color:var(--text);padding-left:14px;white-space:nowrap}
-.source-row .source-name{position:sticky;left:0;z-index:2;background:var(--panel);align-self:stretch;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:4px}
-.source-row.cfets .source-name{background:#101d25}
-.source-row:hover .source-name{background:#111b25}
-.source-time{display:block;color:var(--muted);font-size:9px;font-weight:500;letter-spacing:.02em;font-variant-numeric:tabular-nums}
-.quote-cell{text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;font-size:12px;font-variant-numeric:tabular-nums}
-.quote-cell .buy{color:var(--bid);font-weight:650;margin-right:10px}
-.quote-cell .sell{color:var(--ask);font-weight:650}
+/* ── Focused Quote Board ── */
+.market-panel{margin-top:8px;background:rgba(14,22,32,.96);border:1px solid var(--line)}
+.market-head{min-height:45px;padding:0 12px;display:flex;align-items:center;justify-content:space-between;gap:14px;border-bottom:1px solid var(--line-soft)}
+.pair-tabs{display:flex;gap:3px}
+.pair-tab{appearance:none;padding:7px 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:11px;cursor:pointer}
+.pair-tab.active{color:var(--text);border-bottom-color:var(--accent);background:#12211f}
+.market-reference{display:flex;align-items:baseline;gap:8px;color:var(--muted);font-size:9px}
+.market-reference strong{color:var(--text);font:700 14px ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+.market-reference small{color:var(--muted)}
+.bank-quote-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.bank-quote{min-height:67px;padding:10px 11px;border-right:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)}
+.bank-quote:nth-child(4n){border-right:0}
+.bank-quote:nth-child(n+5){border-bottom:0}
+.bank-quote-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;color:var(--text);font-size:11px;font-weight:650}
+.bank-quote-head small{color:var(--muted);font-size:9px;font-weight:500;font-variant-numeric:tabular-nums}
+.bank-price-line,.bank-price-labels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;text-align:right}
+.bank-price-line{margin-top:7px;font:650 12px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;font-variant-numeric:tabular-nums}
+.bank-price-line .buy{color:var(--bid)}
+.bank-price-line .sell{color:var(--ask)}
+.bank-price-labels{margin-top:2px;color:var(--muted);font-size:8px}
 .quote-status{text-align:center;color:var(--muted);font-size:9px;line-height:1.35}
 .quote-status.ok{color:var(--accent)}
 .quote-status.partial{color:var(--warn)}
@@ -100,7 +87,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 .recent-entry-meta{margin-top:4px;color:var(--muted);font-size:10px;line-height:1.5;font-variant-numeric:tabular-nums}
 .inline-state{display:grid;min-height:112px;place-items:center;padding:20px;text-align:center;color:var(--muted);font-size:12px;line-height:1.6}
 .inline-error{color:var(--danger);border:1px solid rgba(231,119,112,.28);background:rgba(231,119,112,.045)}
-.skeleton-matrix .source-row{pointer-events:none}
+.skeleton-quote{pointer-events:none}
 .skeleton-line{display:inline-block;width:58px;height:8px;border-radius:1px;background:var(--line);vertical-align:middle}
 .skeleton-line+.skeleton-line{margin-left:10px;width:48px;background:var(--line-soft)}
 
@@ -122,9 +109,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
   .app-shell{width:calc(100% - 16px);margin:12px auto 24px;padding:0}
   .terminal-header{align-items:flex-start;flex-direction:column}
   .live-meta{width:100%;align-items:center;flex-direction:row;justify-content:space-between}
-  .panel-heading{min-height:0;padding:10px 0}
-  .quote-matrix{min-width:820px}
-  .quote-head,.source-row{grid-template-columns:108px repeat(4,minmax(142px,1fr)) 86px}
   .tab-content{padding:10px}
   .entry-layout{grid-template-columns:1fr}
   .entry-panel,.recent-panel{padding:14px}
@@ -154,20 +138,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 </header>
 
 <!-- Quotes -->
-<section class="panel quote-panel" aria-labelledby="quotePanelTitle">
-  <div class="panel-heading">
-    <div class="panel-title">
-      <span class="panel-kicker">MARKET MATRIX</span>
-      <h2 id="quotePanelTitle">实时银行报价</h2>
-    </div>
-    <div class="quote-legend" aria-label="报价颜色图例">
-      <span class="legend-bid"><i class="legend-swatch" aria-hidden="true"></i>买入</span>
-      <span class="legend-ask"><i class="legend-swatch" aria-hidden="true"></i>卖出</span>
+<section class="panel market-panel" aria-labelledby="quotePanelTitle">
+  <h2 id="quotePanelTitle" hidden>实时银行报价</h2>
+  <div class="market-head">
+    <div class="pair-tabs" id="pairTabs" role="tablist" aria-label="货币对"></div>
+    <div class="market-reference" id="marketReference" role="status" aria-live="polite">
+      <span>CFETS 市场参考</span>
+      <strong id="marketReferenceValue">--</strong>
+      <small id="marketReferenceState">等待数据</small>
     </div>
   </div>
-  <div class="quotes" id="quotesContainer">
-    <div class="loading">加载报价中...</div>
-  </div>
+  <div class="quotes" id="quotesContainer" aria-labelledby="quotePanelTitle"></div>
 </section>
 
 <!-- Quote Entry Workspace -->
@@ -259,6 +240,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
 <script>
 // ── 全局状态 ──
 let chartInstance = null;
+let chartRequestId = 0;
 window.addEventListener('resize', () => { if (chartInstance) chartInstance.resize(); });
 
 // ── Tab 切换 ──
@@ -270,30 +252,59 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
       b.setAttribute('aria-selected', String(active));
       document.getElementById('tab-' + b.dataset.tab).classList.toggle('active', active);
     });
-    if (btn.dataset.tab === 'chart') setTimeout(() => { if (chartInstance) chartInstance.resize(); else loadChart(); }, 50);
+    if (btn.dataset.tab === 'chart') setTimeout(() => loadChart(), 50);
   });
 });
 
 // ── 报价栏渲染 ──
-const PAIRS = ["USDCNY","EURCNY","HKDCNY","JPYCNY"];
+const PAIRS = ["USDCNY", "EURCNY", "HKDCNY", "JPYCNY"];
 const BANK_NAMES = [
-  "CFETS","中国银行","招商银行","建设银行","杭州银行",
-  "工商银行","农业银行","邮储银行","民生银行"
+  "中国银行", "招商银行", "建设银行", "杭州银行",
+  "工商银行", "农业银行", "邮储银行", "民生银行"
 ];
+let activePair = "USDCNY";
+let latestQuotes = null;
+
+function selectPair(pair) {
+  if (!PAIRS.includes(pair)) return;
+  activePair = pair;
+  document.getElementById('entryPair').value = pair;
+  document.getElementById('chartPair').value = pair;
+  chartRequestId += 1;
+  if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
+  document.getElementById('chart').innerHTML = '<div class="loading">加载图表中...</div>';
+  const entryPairLabel = document.getElementById('activeEntryPair');
+  if (entryPairLabel) entryPairLabel.textContent = pair;
+  renderPairTabs();
+  if (latestQuotes) {
+    renderQuotes(latestQuotes.cfets, latestQuotes.banks, latestQuotes.timestamp);
+  }
+  loadChart();
+}
+
+function renderPairTabs() {
+  const tabs = document.getElementById('pairTabs');
+  tabs.replaceChildren(...PAIRS.map(pair => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'pair-tab' + (pair === activePair ? ' active' : '');
+    button.dataset.pair = pair;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', String(pair === activePair));
+    button.textContent = pair;
+    button.addEventListener('click', () => selectPair(pair));
+    return button;
+  }));
+}
 
 function renderQuoteSkeleton() {
-  const el = document.getElementById('quotesContainer');
-  let html = '<div role="status" aria-live="polite" aria-label="正在加载外汇报价">'
-    + '<div class="quote-matrix skeleton-matrix" role="table" aria-label="外汇报价加载骨架">'
-    + '<div class="quote-head" role="row"><div class="source-name" role="columnheader">数据来源</div>'
-    + PAIRS.map(pair => '<div role="columnheader"><b>' + pair + '</b><span class="buy-label">买入</span><span class="sell-label">卖出</span></div>').join('')
-    + '<div role="columnheader">状态</div></div>';
-  html += BANK_NAMES.map(source =>
-    '<div class="source-row" role="row"><div class="source-name" role="rowheader"><span>' + source + '</span></div>'
-    + PAIRS.map(() => '<div class="quote-cell" role="cell"><span class="skeleton-line"></span><span class="skeleton-line"></span></div>').join('')
-    + '<div class="quote-status" role="cell"><span class="skeleton-line"></span></div></div>'
+  const cards = BANK_NAMES.map(() =>
+    '<div class="bank-quote skeleton-quote" aria-hidden="true">'
+    + '<span class="skeleton-line"></span><span class="skeleton-line"></span></div>'
   ).join('');
-  el.innerHTML = html + '</div></div>';
+  document.getElementById('quotesContainer').innerHTML =
+    '<div role="status" aria-live="polite" aria-label="正在加载外汇报价">'
+    + '<div class="bank-quote-board skeleton-board">' + cards + '</div></div>';
 }
 
 function showInlineError(containerId, message) {
@@ -306,62 +317,64 @@ function showInlineError(containerId, message) {
   container.replaceChildren(error);
 }
 
+function parsePositivePrice(value) {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const price = Number(value);
+  return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+function formatQuoteTime(value) {
+  if (typeof value !== 'string') return null;
+  const match = value.match(
+    /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]) ([01]\d|2[0-3]):([0-5]\d):[0-5]\d$/
+  );
+  return match ? match[1] + ':' + match[2] : null;
+}
+
 function renderQuotes(cfets, banks, timestamp) {
-  const el = document.getElementById('quotesContainer');
+  latestQuotes = {cfets, banks, timestamp};
+  const pair = activePair;
+  const market = cfets[pair] || {};
+  const marketMid = parsePositivePrice(market.mid);
+  const hasMarketMid = marketMid !== null;
+  document.getElementById('marketReferenceValue').textContent = hasMarketMid
+    ? marketMid.toFixed(4) : '--';
+  document.getElementById('marketReferenceState').textContent = hasMarketMid
+    ? '市场中间价' : '暂无新数据';
   document.getElementById('updateTime').textContent = '最后更新 ' + (timestamp || '--');
-  let html = '<div class="quote-matrix" role="table" aria-label="外汇买入卖出报价矩阵"><div class="quote-head" role="row">'
-    + '<div class="source-name" role="columnheader">数据来源</div>'
-    + PAIRS.map(pair => '<div role="columnheader"><b>' + pair + '</b><span class="buy-label">买入</span><span class="sell-label">卖出</span></div>').join('')
-    + '<div role="columnheader">状态</div></div>';
 
-  for (const source of BANK_NAMES) {
-    let cells = '';
-    let validPairCount = 0;
-    let hasAnyQuote = false;
-    let sourceTime = '';
-    let fetchTime = '';
-    for (const pair of PAIRS) {
-      const quote = source === 'CFETS' ? (cfets[pair] || {}) : ((banks[source] && banks[source][pair]) || {});
-      const bidValue = Number(quote.bid);
-      const askValue = Number(quote.ask);
-      const hasBid = quote.bid != null && String(quote.bid).trim() !== '' && Number.isFinite(bidValue);
-      const hasAsk = quote.ask != null && String(quote.ask).trim() !== '' && Number.isFinite(askValue);
-      const bid = hasBid ? bidValue.toFixed(4) : '--';
-      const ask = hasAsk ? askValue.toFixed(4) : '--';
-      if (hasBid && hasAsk) validPairCount += 1;
-      if (hasBid || hasAsk) hasAnyQuote = true;
-      if (!sourceTime && quote.source_time) sourceTime = quote.source_time;
-      if (!fetchTime && quote.fetch_time) fetchTime = quote.fetch_time;
-      cells += '<div class="quote-cell" role="cell" aria-label="' + source + ' ' + pair
-        + ' 买入 ' + bid + '，卖出 ' + ask + '"><span class="buy">' + bid
-        + '</span><span class="sell">' + ask + '</span></div>';
+  const cards = BANK_NAMES.map(bank => {
+    const quote = (banks[bank] && banks[bank][pair]) || {};
+    const bidValue = parsePositivePrice(quote.bid);
+    const askValue = parsePositivePrice(quote.ask);
+    const hasBid = bidValue !== null;
+    const hasAsk = askValue !== null;
+    const bid = hasBid ? bidValue.toFixed(4) : '--';
+    const ask = hasAsk ? askValue.toFixed(4) : '--';
+    const sourceTime = formatQuoteTime(quote.source_time);
+    const fetchTime = formatQuoteTime(quote.fetch_time);
+    let meta = '等待数据';
+    if (sourceTime) {
+      meta = '源 ' + sourceTime;
+    } else if (fetchTime) {
+      meta = (quote.fetch_time === timestamp ? '本轮抓取 ' : '上次抓取 ')
+        + fetchTime;
+    } else if (hasBid || hasAsk) {
+      meta = '真实报价';
     }
-
-    let sourceMeta = '市场中间价';
-    if (source !== 'CFETS' && sourceTime) {
-      sourceMeta = '源 ' + sourceTime.slice(11, 16);
-    } else if (source !== 'CFETS' && fetchTime) {
-      const label = fetchTime === timestamp ? '本轮抓取' : '上次抓取';
-      sourceMeta = label + ' ' + fetchTime.slice(11, 16);
-    } else if (source !== 'CFETS') {
-      sourceMeta = hasAnyQuote ? '真实报价' : '等待数据';
-    }
-
-    let statusClass = 'ok';
-    let statusText = source === 'CFETS' ? '市场基准' : '正常';
-    if (!hasAnyQuote) {
-      statusClass = 'missing';
-      statusText = '暂无新数据';
-    } else if (validPairCount < PAIRS.length) {
-      statusClass = 'partial';
-      statusText = '部分缺失';
-    }
-    html += '<div class="source-row' + (source === 'CFETS' ? ' cfets' : '') + '" role="row" data-source="' + source + '">'
-      + '<div class="source-name" role="rowheader"><span>' + source + '</span><small class="source-time">'
-      + sourceMeta + '</small></div>' + cells
-      + '<div class="quote-status ' + statusClass + '" role="cell">' + statusText + '</div></div>';
-  }
-  el.innerHTML = html + '</div>';
+    const statusClass = hasBid && hasAsk ? 'ok' : (hasBid || hasAsk ? 'partial' : 'missing');
+    const status = hasBid && hasAsk ? '正常' : (hasBid || hasAsk ? '部分缺失' : '暂无新数据');
+    return '<article class="bank-quote" role="listitem" data-source="' + bank + '" aria-label="'
+      + bank + ' ' + pair + ' 买入 ' + bid + '，卖出 ' + ask + '">'
+      + '<div class="bank-quote-head"><span>' + bank + '</span><small>' + meta + '</small></div>'
+      + '<div class="bank-price-line"><span class="buy">' + bid + '</span><span class="sell">' + ask + '</span></div>'
+      + '<div class="bank-price-labels"><span>买入</span><span>卖出</span></div>'
+      + '<div class="quote-status ' + statusClass + '">' + status + '</div></article>';
+  }).join('');
+  document.getElementById('quotesContainer').innerHTML =
+    '<div class="bank-quote-board" role="list" aria-label="' + pair + ' 银行报价">'
+    + cards + '</div>';
 }
 
 // ── 获取报价 ──
@@ -373,6 +386,7 @@ async function fetchQuotes() {
     renderQuotes(data.cfets || {}, data.banks || {}, data.timestamp);
   } catch(e) {
     console.error('fetchQuotes error:', e);
+    latestQuotes = null;
     showInlineError('quotesContainer', '报价暂时无法获取，系统将在下一轮自动重试');
   }
 }
@@ -386,6 +400,7 @@ const LINE_STYLE = [
 ];
 
 async function loadChart() {
+  const requestId = ++chartRequestId;
   const pair = document.getElementById('chartPair').value;
   const bank = document.getElementById('chartBank').value;
   const dateInput = document.getElementById('chartDate').value;
@@ -397,8 +412,10 @@ async function loadChart() {
     const res = await fetch(url);
     if (!res.ok) throw new Error('chart request failed: ' + res.status);
     const data = await res.json();
+    if (requestId !== chartRequestId || pair !== document.getElementById('chartPair').value) return;
     renderChart(data);
   } catch(e) {
+    if (requestId !== chartRequestId) return;
     console.error('loadChart error:', e);
     if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
     showInlineError('chart', '图表暂时无法获取，请稍后重试');
@@ -574,6 +591,7 @@ async function loadEntries() {
 })();
 
 // ── 自动刷新 ──
+renderPairTabs();
 renderQuoteSkeleton();
 fetchQuotes();
 loadChart();

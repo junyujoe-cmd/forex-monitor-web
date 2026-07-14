@@ -636,6 +636,8 @@ class MockNode {
     this.textContentWrites = 0;
     this.replaceChildrenCalls = 0;
     this.isFragment = false;
+    this.dataset = {};
+    this.listeners = {};
   }
   set innerHTML(value) {
     this._innerHTML = String(value);
@@ -650,6 +652,7 @@ class MockNode {
   }
   get textContent() { return this._textContent; }
   setAttribute(name, value) { this.attributes[name] = String(value); }
+  addEventListener(type, handler) { this.listeners[type] = handler; }
   append(...nodes) { this.children.push(...nodes); }
   replaceChildren(...nodes) {
     this.replaceChildrenCalls += 1;
@@ -689,15 +692,32 @@ class MockFragment extends MockNode {
         end = cls.html.index(end_marker, start)
         return cls.html[start:end]
 
-    def test_matrix_contains_all_nine_sources(self):
-        expected = [
+    def test_focused_pair_board_contains_all_sources_and_real_pairs(self):
+        for source in [
             "CFETS", "中国银行", "招商银行", "建设银行", "杭州银行",
             "工商银行", "农业银行", "邮储银行", "民生银行",
-        ]
-        for source in expected:
+        ]:
             self.assertIn(source, self.html)
-        self.assertIn("quote-matrix", self.html)
-        self.assertIn("quote-status", self.html)
+        for pair in ["USDCNY", "EURCNY", "HKDCNY", "JPYCNY"]:
+            self.assertIn(f'"{pair}"', self.html)
+        self.assertNotIn("GBPCNY", self.html)
+        for marker in [
+            'id="pairTabs"', 'id="marketReference"',
+            'id="marketReferenceValue"', 'id="marketReferenceState"',
+            'id="quotesContainer"', "bank-quote-board", "bank-quote",
+            "button.dataset.pair = pair",
+        ]:
+            self.assertIn(marker, self.html)
+        self.assertNotIn('class="quote-matrix"', self.html)
+
+    def test_quote_board_tracks_one_active_pair(self):
+        source = self.extract_js(
+            'const PAIRS = ["USDCNY"',
+            "async function fetchQuotes()",
+        )
+        self.assertIn('let activePair = "USDCNY"', source)
+        self.assertIn("function selectPair(pair)", source)
+        self.assertRegex(source, r"const\s+pair\s*=\s*activePair")
 
     def test_institutional_shell_brand_and_palette(self):
         for marker in [
@@ -755,10 +775,8 @@ class MockFragment extends MockNode {
             r"window\s*\.\s*addEventListener\s*\(\s*['\"]resize['\"]"
         )
         self.assertEqual(len(re.findall(resize_pattern, self.html)), 1)
-        self.assertRegex(
-            state_source,
-            r"(?:let|const|var)\s+\w+\s*=\s*null\s*;\s*" + resize_pattern,
-        )
+        self.assertRegex(state_source, r"let\s+chartInstance\s*=\s*null")
+        self.assertRegex(state_source, resize_pattern)
         self.assertNotRegex(render_chart_source, resize_pattern)
 
         if not NODE_BINARY:
@@ -932,7 +950,125 @@ const console = { error() {} };
         self.assertTrue(lifecycle["recoveredDomCleared"])
         self.assertEqual(lifecycle["recoveredResizeCalls"], 1)
 
-    def test_focus_and_mobile_layout_keep_scroll_inside_quote_matrix(self):
+    @unittest.skipUnless(NODE_BINARY, "Node.js is required for chart request behavior")
+    def test_chart_selection_ignores_stale_success_and_rejected_error(self):
+        state_source = self.extract_js(
+            "// ── 全局状态 ──",
+            "// ── Tab 切换 ──",
+        )
+        quote_and_chart_source = self.extract_js(
+            'const PAIRS = ["USDCNY"',
+            "function renderChart(data)",
+        )
+        result = self.run_node_json(self.NODE_DOM_PRELUDE + """
+const elements = {
+  pairTabs: new MockNode(),
+  quotesContainer: new MockNode(),
+  marketReferenceValue: new MockNode(),
+  marketReferenceState: new MockNode(),
+  updateTime: new MockNode(),
+  entryPair: Object.assign(new MockNode('select'), { value: 'USDCNY' }),
+  chartPair: Object.assign(new MockNode('select'), { value: 'USDCNY' }),
+  chartBank: Object.assign(new MockNode('select'), { value: '中国银行' }),
+  chartDate: Object.assign(new MockNode('input'), { value: '2026-07-14' }),
+  chart: new MockNode(),
+  activeEntryPair: new MockNode()
+};
+const document = {
+  getElementById(id) { return elements[id]; },
+  createElement(tagName) { return new MockNode(tagName); }
+};
+const window = { addEventListener() {} };
+const consoleErrors = [];
+const console = { error(...args) { consoleErrors.push(args.map(String).join(' ')); } };
+const requests = [];
+const fetch = url => new Promise((resolve, reject) => requests.push({ url, resolve, reject }));
+const renderedPairs = [];
+""" + state_source + quote_and_chart_source + """
+function renderChart(data) {
+  renderedPairs.push(data.pair);
+  const success = new MockNode();
+  success.className = 'chart-success';
+  success.textContent = data.pair;
+  elements.chart.replaceChildren(success);
+}
+
+(async () => {
+  renderPairTabs();
+  chartInstance = { disposed: false, dispose() { this.disposed = true; } };
+  const oldChart = chartInstance;
+  const firstLoad = loadChart();
+  selectPair('EURCNY');
+  const requestCountAfterSelection = requests.length;
+
+  if (requests[1]) {
+    requests[1].resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({ pair: 'EURCNY' })
+    });
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  requests[0].resolve({
+    ok: true,
+    status: 200,
+    json: async () => ({ pair: 'USDCNY' })
+  });
+  await firstLoad;
+  await new Promise(resolve => setImmediate(resolve));
+
+  const staleFailure = loadChart();
+  selectPair('HKDCNY');
+  requests[3].resolve({
+    ok: true,
+    status: 200,
+    json: async () => ({ pair: 'HKDCNY' })
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  requests[2].reject(new Error('stale chart failure'));
+  await staleFailure;
+  await new Promise(resolve => setImmediate(resolve));
+
+  const chartNode = elements.chart.children[0];
+  process.stdout.write(JSON.stringify({
+    requestCountAfterSelection,
+    urls: requests.map(request => request.url),
+    renderedPairs,
+    oldChartDisposed: oldChart.disposed,
+    selectedPair: elements.chartPair.value,
+    rejectedRequestUrl: requests[2].url,
+    consoleErrorCount: consoleErrors.length,
+    chartState: {
+      className: chartNode.className,
+      text: chartNode.textContent
+    }
+  }));
+})().catch(error => {
+  process.stderr.write(error.stack + '\\n');
+  process.exit(1);
+});
+""")
+
+        self.assertEqual(result, {
+            "requestCountAfterSelection": 2,
+            "urls": [
+                "/api/chart?pair=USDCNY&bank=%E4%B8%AD%E5%9B%BD%E9%93%B6%E8%A1%8C&date=2026-07-14",
+                "/api/chart?pair=EURCNY&bank=%E4%B8%AD%E5%9B%BD%E9%93%B6%E8%A1%8C&date=2026-07-14",
+                "/api/chart?pair=EURCNY&bank=%E4%B8%AD%E5%9B%BD%E9%93%B6%E8%A1%8C&date=2026-07-14",
+                "/api/chart?pair=HKDCNY&bank=%E4%B8%AD%E5%9B%BD%E9%93%B6%E8%A1%8C&date=2026-07-14",
+            ],
+            "renderedPairs": ["EURCNY", "HKDCNY"],
+            "oldChartDisposed": True,
+            "selectedPair": "HKDCNY",
+            "rejectedRequestUrl": (
+                "/api/chart?pair=EURCNY&bank="
+                "%E4%B8%AD%E5%9B%BD%E9%93%B6%E8%A1%8C&date=2026-07-14"
+            ),
+            "consoleErrorCount": 0,
+            "chartState": {"className": "chart-success", "text": "HKDCNY"},
+        })
+
+    def test_focus_and_existing_workspace_responsive_rules_are_preserved(self):
         style_source = self.html[
             self.html.index("<style>") + len("<style>"):
             self.html.index("</style>")
@@ -960,10 +1096,6 @@ const console = { error() {} };
             ".terminal-header{align-items:flex-start;flex-direction:column}",
             ".live-meta{width:100%;align-items:center;flex-direction:row;"
             "justify-content:space-between}",
-            ".panel-heading{min-height:0;padding:10px0}",
-            ".quote-matrix{min-width:820px}",
-            ".quote-head,.source-row{grid-template-columns:108px"
-            "repeat(4,minmax(142px,1fr))86px}",
             ".tab-content{padding:10px}",
             ".entry-layout{grid-template-columns:1fr}",
             ".entry-panel,.recent-panel{padding:14px}",
@@ -975,8 +1107,6 @@ const console = { error() {} };
             self.assertIn(rule, media_640)
 
         self.assertRegex(normalized_css, r"body\{[^}]*overflow-x:hidden[^}]*\}")
-        self.assertEqual(normalized_css.count(".quotes{overflow-x:auto}"), 1)
-        self.assertEqual(normalized_css.count("overflow-x:auto"), 1)
         self.assertNotIn("@media(max-width:600px)", normalized_css)
 
     def test_entry_and_chart_selectors_contain_new_banks(self):
@@ -1064,6 +1194,8 @@ const document = {
   getElementById(id) { return panes[id]; }
 };
 let chartInstance = { resize() {} };
+let loadChartCalls = 0;
+function loadChart() { loadChartCalls += 1; }
 const setTimeout = callback => callback();
 """ + tab_script + """
 chartButton.listeners.click();
@@ -1077,7 +1209,8 @@ process.stdout.write(JSON.stringify({
     selected: chartButton.attributes['aria-selected']
   },
   entryPaneActive: panes['tab-entry'].classList.contains('active'),
-  chartPaneActive: panes['tab-chart'].classList.contains('active')
+  chartPaneActive: panes['tab-chart'].classList.contains('active'),
+  loadChartCalls
 }));
 """)
         self.assertEqual(result, {
@@ -1085,6 +1218,7 @@ process.stdout.write(JSON.stringify({
             "chartButton": {"active": True, "selected": "true"},
             "entryPaneActive": False,
             "chartPaneActive": True,
+            "loadChartCalls": 1,
         })
 
     def test_loading_and_request_failures_are_inline_and_retryable(self):
@@ -1138,7 +1272,10 @@ process.stdout.write(JSON.stringify({
         )
         result = self.run_node_json(self.NODE_DOM_PRELUDE + """
 const elements = {
+  pairTabs: new MockNode(),
   quotesContainer: new MockNode(),
+  marketReferenceValue: new MockNode(),
+  marketReferenceState: new MockNode(),
   updateTime: new MockNode(),
   chart: new MockNode(),
   chartPair: Object.assign(new MockNode('select'), { value: 'USDCNY' }),
@@ -1152,6 +1289,7 @@ const elements = {
   entryTime: Object.assign(new MockNode('input'), { value: '' }),
   entryResult: new MockNode(),
   entryRecent: new MockNode(),
+  activeEntryPair: new MockNode(),
   scratch: new MockNode()
 };
 const document = {
@@ -1207,6 +1345,7 @@ const fetch = async url => {
 const console = { error() {} };
 let chartDisposed = false;
 let chartInstance = { dispose() { chartDisposed = true; } };
+let chartRequestId = 0;
 """ + behavior_script + """
 let loadEntriesCalls = 0;
 const realLoadEntries = loadEntries;
@@ -1226,11 +1365,35 @@ function errorState(container) {
   };
 }
 (async () => {
+  renderPairTabs();
+  renderQuotes(
+    { USDCNY: { mid: 6.7800 }, EURCNY: { mid: 7.8000 } },
+    {
+      '中国银行': {
+        USDCNY: { bid: 6.7600, ask: 6.8000 },
+        EURCNY: { bid: 7.7600, ask: 7.8200 }
+      }
+    },
+    '2026-07-14 10:00:00'
+  );
+  elements.pairTabs.children[1].listeners.click();
+  const pairSelection = {
+    activePair,
+    entryPair: elements.entryPair.value,
+    chartPair: elements.chartPair.value,
+    activeEntryPair: elements.activeEntryPair.textContent,
+    marketValue: elements.marketReferenceValue.textContent,
+    selectedTabs: elements.pairTabs.children.map(
+      button => button.attributes['aria-selected']
+    ),
+    renderedPair: elements.quotesContainer.innerHTML.includes(
+      '中国银行 EURCNY 买入 7.7600，卖出 7.8200'
+    )
+  };
   renderQuoteSkeleton();
   const skeleton = elements.quotesContainer.innerHTML;
   const skeletonState = {
-    rows: (skeleton.match(/class="source-row"/g) || []).length,
-    cells: (skeleton.match(/class="quote-cell"/g) || []).length,
+    cards: (skeleton.match(/class="bank-quote /g) || []).length,
     status: skeleton.includes('role="status"'),
     live: skeleton.includes('aria-live="polite"')
   };
@@ -1239,6 +1402,13 @@ function errorState(container) {
   const directError = errorState(elements.scratch);
   await fetchQuotes();
   const quoteError = errorState(elements.quotesContainer);
+  selectPair('HKDCNY');
+  await Promise.resolve();
+  const quoteErrorAfterPairSwitch = {
+    text: elements.quotesContainer.children[0]
+      ? elements.quotesContainer.children[0].textContent : '',
+    hasCachedBoard: elements.quotesContainer.innerHTML.includes('bank-quote-board')
+  };
   await loadChart();
   const chartError = errorState(elements.chart);
   await loadEntries();
@@ -1262,9 +1432,11 @@ function errorState(container) {
   const submitSuccessHTML = elements.entryResult.innerHTML;
   const callsAfterSuccess = loadEntriesCalls;
   process.stdout.write(JSON.stringify({
+    pairSelection,
     skeletonState,
     directError,
     quoteError,
+    quoteErrorAfterPairSwitch,
     chartError,
     chartDisposed,
     chartInstanceIsNull: chartInstance === null,
@@ -1293,8 +1465,17 @@ function errorState(container) {
   process.exit(1);
 });
 """)
+        self.assertEqual(result["pairSelection"], {
+            "activePair": "EURCNY",
+            "entryPair": "EURCNY",
+            "chartPair": "EURCNY",
+            "activeEntryPair": "EURCNY",
+            "marketValue": "7.8000",
+            "selectedTabs": ["false", "true", "false", "false"],
+            "renderedPair": True,
+        })
         self.assertEqual(result["skeletonState"], {
-            "rows": 9, "cells": 36, "status": True, "live": True,
+            "cards": 8, "status": True, "live": True,
         })
         self.assertEqual(result["directError"], {
             "className": "inline-state inline-error",
@@ -1308,6 +1489,10 @@ function errorState(container) {
             result["quoteError"]["text"],
             "报价暂时无法获取，系统将在下一轮自动重试",
         )
+        self.assertEqual(result["quoteErrorAfterPairSwitch"], {
+            "text": "报价暂时无法获取，系统将在下一轮自动重试",
+            "hasCachedBoard": False,
+        })
         self.assertEqual(
             result["chartError"]["text"],
             "图表暂时无法获取，请稍后重试",
@@ -1348,7 +1533,7 @@ function errorState(container) {
             result["submit"]["callsBeforeSubmit"] + 1,
         )
 
-    def test_matrix_has_no_repeated_midpoint_cost_line(self):
+    def test_board_has_no_repeated_midpoint_cost_line(self):
         self.assertNotIn("pair-card .costs", self.html)
         self.assertNotIn("市场' + mc + ' 银行' + bc", self.html)
         self.assertIn("暂无新数据", self.html)
@@ -1362,6 +1547,8 @@ function errorState(container) {
         harness = f"""
 const elements = {{
   quotesContainer: {{ innerHTML: '' }},
+  marketReferenceValue: {{ textContent: '' }},
+  marketReferenceState: {{ textContent: '' }},
   updateTime: {{ textContent: '' }}
 }};
 const document = {{ getElementById: id => elements[id] }};
@@ -1371,7 +1558,12 @@ renderQuotes(
   {json.dumps(banks, ensure_ascii=False)},
   {json.dumps(timestamp)}
 );
-process.stdout.write(elements.quotesContainer.innerHTML);
+process.stdout.write(JSON.stringify({{
+  html: elements.quotesContainer.innerHTML,
+  marketValue: elements.marketReferenceValue.textContent,
+  marketState: elements.marketReferenceState.textContent,
+  updateTime: elements.updateTime.textContent
+}}));
 """
         result = subprocess.run(
             [NODE_BINARY, "-e", harness],
@@ -1379,37 +1571,40 @@ process.stdout.write(elements.quotesContainer.innerHTML);
             capture_output=True,
             text=True,
         )
-        return result.stdout
+        return json.loads(result.stdout)
 
     @staticmethod
-    def source_row(rendered, source):
+    def source_card(rendered, source):
         marker = f'data-source="{source}"'
         marker_pos = rendered.index(marker)
-        row_start = rendered.rfind('<div class="source-row', 0, marker_pos)
-        row_end = rendered.find('<div class="source-row', marker_pos)
-        return rendered[row_start:row_end if row_end >= 0 else len(rendered)]
+        card_start = rendered.rfind('<article class="bank-quote', 0, marker_pos)
+        card_end = rendered.find('<article class="bank-quote', marker_pos)
+        return rendered[card_start:card_end if card_end >= 0 else len(rendered)]
 
     @unittest.skipUnless(NODE_BINARY, "Node.js is required for dynamic frontend rendering")
-    def test_dynamic_matrix_keeps_nine_sources_and_thirty_six_cells(self):
-        rendered = self.render_quotes({}, {}, "2026-07-13 12:30:00")
+    def test_dynamic_board_keeps_eight_bank_cards_and_separate_market_reference(self):
+        state = self.render_quotes({}, {}, "2026-07-13 12:30:00")
+        rendered = state["html"]
 
-        self.assertEqual(rendered.count('class="source-row'), 9)
-        self.assertEqual(rendered.count('class="quote-cell"'), 36)
-        self.assertEqual(rendered.count('class="source-time"'), 9)
+        self.assertEqual(rendered.count('<article class="bank-quote"'), 8)
+        self.assertEqual(rendered.count('data-source="'), 8)
+        for bank in [
+            "中国银行", "招商银行", "建设银行", "杭州银行",
+            "工商银行", "农业银行", "邮储银行", "民生银行",
+        ]:
+            self.assertEqual(rendered.count(f'data-source="{bank}"'), 1)
+        self.assertNotIn('data-source="CFETS"', rendered)
+        self.assertEqual(state["marketValue"], "--")
+        self.assertEqual(state["marketState"], "暂无新数据")
+        self.assertEqual(state["updateTime"], "最后更新 2026-07-13 12:30:00")
 
     @unittest.skipUnless(NODE_BINARY, "Node.js is required for dynamic frontend rendering")
     def test_non_finite_and_partial_quotes_render_truthful_states(self):
         valid = {"bid": 6.76, "ask": 6.79}
-        full_bank = {
-            pair: {**valid, "source_time": "2026-07-13 12:30:00"}
-            for pair in ["USDCNY", "EURCNY", "HKDCNY", "JPYCNY"]
-        }
-        rendered = self.render_quotes(
+        state = self.render_quotes(
             {
-                "USDCNY": valid,
+                "USDCNY": {"mid": 6.78},
                 "EURCNY": {"bid": "NaN", "ask": 7.80},
-                "HKDCNY": valid,
-                "JPYCNY": valid,
             },
             {
                 "工商银行": {"USDCNY": {"bid": "Infinity", "ask": 6.80}},
@@ -1426,36 +1621,44 @@ process.stdout.write(elements.quotesContainer.innerHTML);
                         "fetch_time": "2026-07-13 12:29:00",
                     },
                 },
-                "民生银行": full_bank,
+                "民生银行": {
+                    "USDCNY": {
+                        **valid,
+                        "source_time": "2026-07-13 12:30:00",
+                        "fetch_time": "2026-07-13 12:29:00",
+                    },
+                },
             },
             "2026-07-13 12:30:00",
         )
+        rendered = state["html"]
 
         self.assertNotIn("NaN", rendered)
         self.assertNotIn("Infinity", rendered)
-        self.assertIn("部分缺失", self.source_row(rendered, "CFETS"))
-        icbc_row = self.source_row(rendered, "工商银行")
-        self.assertIn('<small class="source-time">真实报价</small>', icbc_row)
+        self.assertEqual(state["marketValue"], "6.7800")
+        self.assertEqual(state["marketState"], "市场中间价")
+        icbc_card = self.source_card(rendered, "工商银行")
+        self.assertIn('<small>真实报价</small>', icbc_card)
         for bank in ["工商银行", "招商银行"]:
-            bank_row = self.source_row(rendered, bank)
-            self.assertIn('class="quote-status partial"', bank_row)
-            self.assertIn(">部分缺失</div>", bank_row)
-            self.assertNotIn("暂无新数据", bank_row)
+            bank_card = self.source_card(rendered, bank)
+            self.assertIn('class="quote-status partial"', bank_card)
+            self.assertIn(">部分缺失</div>", bank_card)
+            self.assertNotIn("暂无新数据", bank_card)
         self.assertIn(
-            '<small class="source-time">本轮抓取 12:30</small>',
-            self.source_row(rendered, "建设银行"),
+            '<small>本轮抓取 12:30</small>',
+            self.source_card(rendered, "建设银行"),
         )
         self.assertIn(
-            '<small class="source-time">上次抓取 12:29</small>',
-            self.source_row(rendered, "杭州银行"),
+            '<small>上次抓取 12:29</small>',
+            self.source_card(rendered, "杭州银行"),
         )
-        abc_row = self.source_row(rendered, "农业银行")
-        self.assertIn('<small class="source-time">等待数据</small>', abc_row)
-        self.assertIn('class="quote-status missing"', abc_row)
-        self.assertIn(">暂无新数据</div>", abc_row)
-        minsheng_row = self.source_row(rendered, "民生银行")
-        self.assertIn('<small class="source-time">源 12:30</small>', minsheng_row)
-        self.assertIn(">正常</div>", minsheng_row)
+        abc_card = self.source_card(rendered, "农业银行")
+        self.assertIn('<small>等待数据</small>', abc_card)
+        self.assertIn('class="quote-status missing"', abc_card)
+        self.assertIn(">暂无新数据</div>", abc_card)
+        minsheng_card = self.source_card(rendered, "民生银行")
+        self.assertIn('<small>源 12:30</small>', minsheng_card)
+        self.assertIn(">正常</div>", minsheng_card)
         self.assertIn(
             'aria-label="工商银行 USDCNY 买入 --，卖出 6.8000"',
             rendered,
@@ -1465,21 +1668,117 @@ process.stdout.write(elements.quotesContainer.innerHTML);
             rendered,
         )
 
-    def test_source_column_stays_visible_during_horizontal_scroll(self):
-        self.assertIn("overflow:visible", self.html)
-        self.assertIn("position:sticky", self.html)
-        self.assertIn(".source-row .source-name", self.html)
-        self.assertIn(".source-row.cfets .source-name", self.html)
-        self.assertIn(".source-row:hover .source-name", self.html)
-        self.assertIn("z-index:3", self.html)
-        self.assertIn("z-index:2", self.html)
+    @unittest.skipUnless(NODE_BINARY, "Node.js is required for dynamic frontend rendering")
+    def test_malformed_and_non_positive_prices_render_as_missing(self):
+        malformed_bids = {
+            "中国银行": True,
+            "招商银行": [6.75],
+            "建设银行": [],
+            "杭州银行": 0,
+            "工商银行": -1,
+            "农业银行": {},
+            "邮储银行": "",
+            "民生银行": "   ",
+        }
+        state = self.render_quotes(
+            {"USDCNY": {"mid": True}},
+            {
+                bank: {"USDCNY": {"bid": bid, "ask": "6.8"}}
+                for bank, bid in malformed_bids.items()
+            },
+            "2026-07-13 12:30:00",
+        )
+        rendered = state["html"]
 
-    def test_matrix_has_accessible_table_semantics(self):
-        self.assertIn('role="table"', self.html)
-        self.assertIn('aria-label="外汇买入卖出报价矩阵"', self.html)
-        self.assertIn('role="columnheader"', self.html)
-        self.assertIn('role="rowheader"', self.html)
-        self.assertIn('role="cell"', self.html)
+        self.assertEqual(state["marketValue"], "--")
+        for invalid_price in ["0.0000", "1.0000", "-1.0000", "6.7500"]:
+            self.assertNotIn(invalid_price, rendered)
+        for bank in malformed_bids:
+            card = self.source_card(rendered, bank)
+            self.assertIn(f'aria-label="{bank} USDCNY 买入 --，卖出 6.8000"', card)
+            self.assertIn('class="quote-status partial"', card)
+            self.assertNotIn(">正常</div>", card)
+
+    @unittest.skipUnless(NODE_BINARY, "Node.js is required for dynamic frontend rendering")
+    def test_time_metadata_rejects_markup_and_preserves_valid_fallbacks(self):
+        valid = {"bid": 6.76, "ask": 6.79}
+        state = self.render_quotes(
+            {},
+            {
+                "中国银行": {
+                    "USDCNY": {
+                        **valid,
+                        "source_time": "2026-07-13 <img>",
+                        "fetch_time": "2026-07-13 12:30:00",
+                    },
+                },
+                "招商银行": {
+                    "USDCNY": {
+                        **valid,
+                        "source_time": "2026-07-13 <svg>",
+                        "fetch_time": "2026-07-13 12:29:00",
+                    },
+                },
+                "建设银行": {
+                    "USDCNY": {
+                        **valid,
+                        "source_time": "2026-07-13 12:28:00",
+                        "fetch_time": "<svg onload=alert(1)>",
+                    },
+                },
+                "杭州银行": {
+                    "USDCNY": {
+                        **valid,
+                        "source_time": "not-a-time",
+                        "fetch_time": "<b>bad</b>",
+                    },
+                },
+            },
+            "2026-07-13 12:30:00",
+        )
+        rendered = state["html"]
+
+        for unsafe in ["<img", "<svg", "<b>bad</b>"]:
+            self.assertNotIn(unsafe, rendered)
+        self.assertIn(
+            "<small>本轮抓取 12:30</small>",
+            self.source_card(rendered, "中国银行"),
+        )
+        self.assertIn(
+            "<small>上次抓取 12:29</small>",
+            self.source_card(rendered, "招商银行"),
+        )
+        self.assertIn(
+            "<small>源 12:28</small>",
+            self.source_card(rendered, "建设银行"),
+        )
+        self.assertIn(
+            "<small>真实报价</small>",
+            self.source_card(rendered, "杭州银行"),
+        )
+
+    def test_board_uses_continuous_four_by_two_layout(self):
+        normalized_css = re.sub(r"\s+", "", self.html)
+        for rule in [
+            ".bank-quote-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}",
+            ".bank-quote:nth-child(4n){border-right:0}",
+            ".bank-quote:nth-child(n+5){border-bottom:0}",
+        ]:
+            self.assertIn(rule, normalized_css)
+
+    def test_board_has_accessible_tabs_market_status_and_quote_labels(self):
+        self.assertRegex(
+            self.html,
+            r'<div(?=[^>]*id="pairTabs")(?=[^>]*role="tablist")'
+            r'(?=[^>]*aria-label="货币对")[^>]*>',
+        )
+        self.assertRegex(
+            self.html,
+            r'<div(?=[^>]*id="marketReference")(?=[^>]*role="status")'
+            r'(?=[^>]*aria-live="polite")[^>]*>',
+        )
+        self.assertIn("button.setAttribute('role', 'tab')", self.html)
+        self.assertIn("button.setAttribute('aria-selected'", self.html)
         self.assertIn("买入 ' + bid + '，卖出 ' + ask", self.html)
 
 
