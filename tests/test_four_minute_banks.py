@@ -1150,7 +1150,7 @@ function renderChart(data) {
         for marker in [
             ".terminal-header{min-height:44px",
             ".bank-quote-board{display:grid;grid-template-columns:repeat(4",
-            ".workbench{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr)",
+            ".workbench{display:grid;flex:1;grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr)",
             ".recent-activity{",
             ".result-value{",
             ":is(button,select,input):focus-visible{outline:2px solid var(--accent)",
@@ -1159,6 +1159,20 @@ function renderChart(data) {
         self.assertNotIn("border-radius:10px", self.html)
         self.assertNotIn("box-shadow:0 8px", self.html)
 
+    def test_desktop_workbench_fills_the_viewport_height(self):
+        normalized_css = re.sub(
+            r"\s+", "", self.html[self.html.index("<style>"):self.html.index("</style>")]
+        )
+        for marker in [
+            ".app-shell{width:min(100%,1400px);min-height:100vh;display:flex;flex-direction:column",
+            ".workspace-panel{margin-top:8px;flex:1;display:flex;min-height:0;flex-direction:column",
+            ".tab-content{padding:0;min-height:0;flex:1;display:flex}",
+            ".tab-pane.active{display:flex;min-height:0;flex:1;flex-direction:column}",
+            ".workbench{display:grid;flex:1;grid-template-columns:minmax(0,1.3fr)minmax(280px,.7fr)}",
+            ".recent-activity{display:flex;flex:00auto",
+        ]:
+            self.assertIn(marker, normalized_css)
+
     def test_narrow_layout_stacks_workbench_without_page_overflow(self):
         self.assertIn("@media(max-width:800px)", self.html)
         media = self.html[self.html.index("@media(max-width:800px)"):]
@@ -1166,6 +1180,8 @@ function renderChart(data) {
             ".bank-quote-board{grid-template-columns:repeat(2,minmax(0,1fr))}",
             ".workbench{grid-template-columns:1fr}",
             ".ticket-fields{grid-template-columns:1fr 1fr}",
+            ".tab-content{min-width:0}",
+            ".tab-pane.active{width:100%;min-width:0}",
         ]:
             self.assertIn(marker, media)
         self.assertNotIn("min-width:820px", media)
