@@ -984,6 +984,7 @@ const console = { error(...args) { consoleErrors.push(args.map(String).join(' ')
 const requests = [];
 const fetch = url => new Promise((resolve, reject) => requests.push({ url, resolve, reject }));
 const renderedPairs = [];
+function invalidateEntrySubmission() {}
 """ + state_source + quote_and_chart_source + """
 function renderChart(data) {
   renderedPairs.push(data.pair);
@@ -1084,7 +1085,8 @@ function renderChart(data) {
         media_640_start = normalized_css.index("@media(max-width:640px){")
         media_860 = normalized_css[media_860_start:media_640_start]
         for rule in [
-            ".entry-layout{grid-template-columns:1fr}",
+            ".workbench{grid-template-columns:1fr}",
+            ".ticket-fields{grid-template-columns:repeat(2,minmax(0,1fr))}",
             ".form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}",
             ".chart-controls{grid-template-columns:repeat(3,minmax(0,1fr))}",
         ]:
@@ -1097,10 +1099,10 @@ function renderChart(data) {
             ".live-meta{width:100%;align-items:center;flex-direction:row;"
             "justify-content:space-between}",
             ".tab-content{padding:10px}",
-            ".entry-layout{grid-template-columns:1fr}",
-            ".entry-panel,.recent-panel{padding:14px}",
+            ".workbench{grid-template-columns:1fr}",
+            ".deal-ticket,.result-summary{padding:14px}",
+            ".ticket-fields{grid-template-columns:1fr}",
             ".form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}",
-            ".field-wide{grid-column:span2}",
             ".chart-controls{grid-template-columns:1fr}",
             "#chart{height:330px}",
         ]:
@@ -1113,7 +1115,7 @@ function renderChart(data) {
         for bank in ["工商银行", "农业银行", "邮储银行", "民生银行"]:
             self.assertEqual(self.html.count(f"<option>{bank}</option>"), 2)
 
-    def test_entry_workspace_has_professional_structure_and_live_regions(self):
+    def test_compact_entry_keeps_history_mode_and_chart_access(self):
         self.assertRegex(
             self.html,
             r'<nav(?=[^>]*class="workspace-tabs")(?=[^>]*role="tablist")[^>]*>',
@@ -1130,20 +1132,38 @@ function renderChart(data) {
             r'(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="tab-chart")'
             r'(?=[^>]*data-tab="chart")[^>]*>历史图表</button>',
         )
-        self.assertRegex(
-            self.html,
-            r'<div(?=[^>]*class="recent-list")(?=[^>]*id="entryRecent")'
-            r'(?=[^>]*role="status")(?=[^>]*aria-live="polite")[^>]*>',
-        )
         for marker in [
-            'class="entry-layout"', 'class="entry-panel"',
-            'class="recent-panel"', 'class="field"',
-            'class="result-card"', 'type="date" id="entryDate"',
-            'type="time" id="entryTime"', '>现在</button>',
+            'class="workbench"', 'class="deal-ticket"',
+            'class="result-summary"', 'class="recent-activity"',
+            'id="entryTimeCurrent"', 'id="entryTimeHistorical"',
+            'id="historicalTimeFields"', 'id="entryDate"', 'id="entryTime"',
+            'id="entryTab"', 'id="chartTab"', 'id="chart"',
         ]:
             self.assertIn(marker, self.html)
-        self.assertNotIn('id="entryDate" style=', self.html)
-        self.assertNotIn('id="entryTime" style=', self.html)
+        self.assertIn('type="hidden" id="entryPair" value="USDCNY"', self.html)
+        entry_markup = self.html[
+            self.html.index('id="tab-entry"'):self.html.index('id="tab-chart"')
+        ]
+        self.assertNotIn('<label class="field">货币对', entry_markup)
+        self.assertIn(
+            'class="time-mode" role="group" aria-label="报价时间模式"',
+            entry_markup,
+        )
+        self.assertIn(
+            'id="entryTimeCurrent" aria-pressed="true"', entry_markup,
+        )
+        self.assertIn(
+            'id="entryTimeHistorical" aria-pressed="false"', entry_markup,
+        )
+        self.assertIn('id="historicalTimeFields" hidden', entry_markup)
+        self.assertRegex(
+            entry_markup,
+            r'<div(?=[^>]*class="recent-activity")(?=[^>]*id="entryRecent")'
+            r'(?=[^>]*role="status")(?=[^>]*aria-live="polite")[^>]*>',
+        )
+        self.assertIn('id="entrySubmit"', entry_markup)
+        self.assertIn('value="买入价">银行买入（客户卖出）', self.html)
+        self.assertIn('value="卖出价">银行卖出（客户买入）', self.html)
         self.assertIn(
             "setAttribute('aria-selected', String(active))",
             self.html,
@@ -1221,6 +1241,424 @@ process.stdout.write(JSON.stringify({
             "loadChartCalls": 1,
         })
 
+    def test_result_copy_uses_dynamic_bank_and_signed_labels(self):
+        self.assertIn("function describeSignedResult(", self.html)
+        source = self.extract_js(
+            "function describeSignedResult(",
+            "async function loadEntries()",
+        )
+        for marker in [
+            "你赚", "你亏", "优惠", "更差", "持平",
+            "bank + '牌价'", "Math.abs",
+        ]:
+            self.assertIn(marker, source)
+
+    def test_signed_result_descriptor_truth_table(self):
+        if not NODE_BINARY:
+            self.skipTest("Node.js is required for result-copy behavior")
+        self.assertIn("function describeSignedResult(", self.html)
+        self.assertIn("function renderEntryResult(", self.html)
+        source = self.extract_js(
+            "function describeSignedResult(",
+            "function renderEntryResult(",
+        )
+        result = self.run_node_json(source + """
+process.stdout.write(JSON.stringify([
+  describeSignedResult(7.4, '优惠', '更差'),
+  describeSignedResult(-2.5, '优惠', '更差'),
+  describeSignedResult(0, '优惠', '更差')
+]));
+""")
+        self.assertEqual(result, [
+            {"label": "优惠", "value": 7.4, "tone": "positive"},
+            {"label": "更差", "value": 2.5, "tone": "negative"},
+            {"label": "持平", "value": 0, "tone": "neutral"},
+        ])
+
+    def test_signed_result_descriptor_rejects_invalid_values(self):
+        if not NODE_BINARY:
+            self.skipTest("Node.js is required for result-copy behavior")
+        source = self.extract_js(
+            "function describeSignedResult(",
+            "function renderEntryResult(",
+        )
+        result = self.run_node_json(source + """
+const invalid = [
+  null, undefined, '', '   ', 'not-a-number', NaN,
+  Infinity, -Infinity, false, {}
+].map(value => describeSignedResult(value, '优惠', '更差'));
+const negativeZero = describeSignedResult(-0, '优惠', '更差');
+const numericString = describeSignedResult('2.5', '优惠', '更差');
+process.stdout.write(JSON.stringify({invalid, negativeZero, numericString}));
+""")
+        self.assertEqual(result["invalid"], [None] * 10)
+        self.assertEqual(result["negativeZero"], {
+            "label": "持平", "value": 0, "tone": "neutral",
+        })
+        self.assertEqual(result["numericString"], {
+            "label": "优惠", "value": 2.5, "tone": "positive",
+        })
+
+    @unittest.skipUnless(NODE_BINARY, "Node.js is required for entry behavior")
+    def test_entry_time_modes_validate_history_and_use_active_pair(self):
+        self.assertIn("let entryTimeMode = 'current';", self.html)
+        source = self.extract_js(
+            "let entryTimeMode = 'current';",
+            "async function loadEntries()",
+        )
+        result = self.run_node_json(self.NODE_DOM_PRELUDE + """
+const elements = {
+  historicalTimeFields: Object.assign(new MockNode(), { hidden: true }),
+  entryTimeCurrent: new MockNode('button'),
+  entryTimeHistorical: new MockNode('button'),
+  entryContext: new MockNode(),
+  entryPair: Object.assign(new MockNode('input'), { value: 'USDCNY' }),
+  entryBank: Object.assign(new MockNode('select'), { value: '中国银行' }),
+  entryDir: Object.assign(new MockNode('select'), { value: '买入价' }),
+  entryQuote: Object.assign(new MockNode('input'), { value: '6.7700' }),
+  entryDate: Object.assign(new MockNode('input'), { value: '' }),
+  entryTime: Object.assign(new MockNode('input'), { value: '' }),
+  entrySubmit: Object.assign(new MockNode('button'), { disabled: false }),
+  entryResult: new MockNode()
+};
+elements.entryTimeCurrent.setAttribute('aria-pressed', 'true');
+elements.entryTimeHistorical.setAttribute('aria-pressed', 'false');
+elements.entryContext.textContent = '使用当前实时市场价与银行牌价计算';
+const document = {
+  getElementById(id) { return elements[id]; },
+  createElement(tagName) { return new MockNode(tagName); }
+};
+let activePair = 'EURCNY';
+const urls = [];
+const fetch = async url => {
+  urls.push(url);
+  return {
+    ok: true,
+    json: async () => ({
+      ok: true,
+      bp_vs_market: 4.25,
+      bp_vs_bank_price: 2.5
+    })
+  };
+};
+const console = { error() {} };
+let loadEntriesCalls = 0;
+function loadEntries() { loadEntriesCalls += 1; }
+""" + source + """
+(async () => {
+  const initial = {
+    mode: entryTimeMode,
+    hidden: elements.historicalTimeFields.hidden,
+    currentPressed: elements.entryTimeCurrent.attributes['aria-pressed'],
+    historicalPressed: elements.entryTimeHistorical.attributes['aria-pressed'],
+    context: elements.entryContext.textContent
+  };
+
+  elements.entryTimeHistorical.listeners.click();
+  const historical = {
+    mode: entryTimeMode,
+    hidden: elements.historicalTimeFields.hidden,
+    currentPressed: elements.entryTimeCurrent.attributes['aria-pressed'],
+    historicalPressed: elements.entryTimeHistorical.attributes['aria-pressed'],
+    context: elements.entryContext.textContent
+  };
+
+  elements.entryDate.value = '2026-07-14';
+  await submitEntry();
+  const missingTime = elements.entryResult.textContent;
+  elements.entryDate.value = '';
+  elements.entryTime.value = '10:35';
+  await submitEntry();
+  const missingDate = elements.entryResult.textContent;
+  const callsAfterInvalid = urls.length;
+
+  elements.entryDate.value = '2026-07-14';
+  await submitEntry();
+  const historicalUrl = urls[0];
+
+  elements.entryTimeCurrent.listeners.click();
+  await submitEntry();
+  const currentUrl = urls[1];
+  const current = {
+    mode: entryTimeMode,
+    hidden: elements.historicalTimeFields.hidden,
+    currentPressed: elements.entryTimeCurrent.attributes['aria-pressed'],
+    historicalPressed: elements.entryTimeHistorical.attributes['aria-pressed'],
+    context: elements.entryContext.textContent
+  };
+
+  process.stdout.write(JSON.stringify({
+    initial, historical, missingTime, missingDate, callsAfterInvalid,
+    historicalUrl, currentUrl, current, loadEntriesCalls
+  }));
+})().catch(error => {
+  process.stderr.write(error.stack + '\\n');
+  process.exit(1);
+});
+""")
+        self.assertEqual(result["initial"], {
+            "mode": "current",
+            "hidden": True,
+            "currentPressed": "true",
+            "historicalPressed": "false",
+            "context": "使用当前实时市场价与银行牌价计算",
+        })
+        self.assertEqual(result["historical"], {
+            "mode": "historical",
+            "hidden": False,
+            "currentPressed": "false",
+            "historicalPressed": "true",
+            "context": "将使用所选历史时点对应的市场价与银行牌价计算",
+        })
+        self.assertEqual(result["missingTime"], "请选择完整的历史日期和时间")
+        self.assertEqual(result["missingDate"], "请选择完整的历史日期和时间")
+        self.assertEqual(result["callsAfterInvalid"], 0)
+        self.assertIn("pair=EURCNY", result["historicalUrl"])
+        self.assertIn("time=2026-07-14T10%3A35", result["historicalUrl"])
+        self.assertIn("pair=EURCNY", result["currentUrl"])
+        self.assertNotIn("time=", result["currentUrl"])
+        self.assertEqual(result["current"], {
+            "mode": "current",
+            "hidden": True,
+            "currentPressed": "true",
+            "historicalPressed": "false",
+            "context": "使用当前实时市场价与银行牌价计算",
+        })
+        self.assertEqual(result["loadEntriesCalls"], 2)
+
+    @unittest.skipUnless(NODE_BINARY, "Node.js is required for result DOM behavior")
+    def test_entry_result_renders_signed_copy_without_inner_html(self):
+        self.assertIn("function describeSignedResult(", self.html)
+        source = self.extract_js(
+            "function describeSignedResult(",
+            "async function loadEntries()",
+        )
+        result = self.run_node_json(self.NODE_DOM_PRELUDE + """
+const elements = {
+  entryResult: new MockNode(),
+  entrySubmit: Object.assign(new MockNode('button'), { disabled: false }),
+  entryBank: Object.assign(new MockNode('select'), { value: '民生银行' }),
+  entryDir: Object.assign(new MockNode('select'), { value: '卖出价' }),
+  entryQuote: Object.assign(new MockNode('input'), { value: '6.8000' }),
+  entryDate: Object.assign(new MockNode('input'), { value: '' }),
+  entryTime: Object.assign(new MockNode('input'), { value: '' }),
+  entryTimeCurrent: new MockNode('button'),
+  entryTimeHistorical: new MockNode('button'),
+  historicalTimeFields: Object.assign(new MockNode(), { hidden: true }),
+  entryContext: new MockNode()
+};
+const document = {
+  getElementById(id) { return elements[id]; },
+  createElement(tagName) { return new MockNode(tagName); }
+};
+let activePair = 'HKDCNY';
+let entryTimeMode = 'current';
+let entrySubmissionPending = false;
+let entrySubmissionId = 0;
+const responses = [{
+  ok: false,
+  json: async () => ({ error: '<b>拒绝提交</b>' })
+}];
+const fetch = async () => responses.shift();
+const console = { error() {} };
+function loadEntries() {}
+function combinedText() {
+  return elements.entryResult.children.flatMap(
+    row => row.children.map(child => child.textContent)
+  ).join(' | ');
+}
+""" + source + """
+(async () => {
+  renderEntryResult({bp_vs_market: 7.44, bp_vs_bank_price: 2.54}, '民生银行');
+  const positive = combinedText();
+  const positiveClasses = elements.entryResult.children.map(row => row.className);
+  renderEntryResult({bp_vs_market: -7.44, bp_vs_bank_price: -2.54}, '民生银行');
+  const negative = combinedText();
+  const negativeClasses = elements.entryResult.children.map(row => row.className);
+  renderEntryResult({bp_vs_market: 0, bp_vs_bank_price: 0}, '民生银行');
+  const zero = combinedText();
+  const zeroClasses = elements.entryResult.children.map(row => row.className);
+
+  await submitEntry();
+  process.stdout.write(JSON.stringify({
+    positive, positiveClasses, negative, negativeClasses, zero, zeroClasses,
+    errorText: elements.entryResult.textContent,
+    innerHTMLWrites: elements.entryResult.innerHTMLWrites
+  }));
+})().catch(error => {
+  process.stderr.write(error.stack + '\\n');
+  process.exit(1);
+});
+""")
+        self.assertIn("对比市场成本，你赚： | 7.4 bp", result["positive"])
+        self.assertIn("对比民生银行牌价，优惠： | 2.5 bp", result["positive"])
+        self.assertEqual(result["positiveClasses"], [
+            "result-row positive", "result-row positive",
+        ])
+        self.assertIn("对比市场成本，你亏： | 7.4 bp", result["negative"])
+        self.assertIn("对比民生银行牌价，更差： | 2.5 bp", result["negative"])
+        self.assertEqual(result["negativeClasses"], [
+            "result-row negative", "result-row negative",
+        ])
+        self.assertIn("对比市场成本，持平： | 0.0 bp", result["zero"])
+        self.assertIn("对比民生银行牌价，持平： | 0.0 bp", result["zero"])
+        self.assertEqual(result["zeroClasses"], [
+            "result-row neutral", "result-row neutral",
+        ])
+        self.assertEqual(result["errorText"], "<b>拒绝提交</b>")
+        self.assertEqual(result["innerHTMLWrites"], 0)
+
+    @unittest.skipUnless(NODE_BINARY, "Node.js is required for result DOM behavior")
+    def test_entry_result_rejects_incomplete_comparison_data(self):
+        source = self.extract_js(
+            "function describeSignedResult(",
+            "async function submitEntry()",
+        )
+        result = self.run_node_json(self.NODE_DOM_PRELUDE + """
+const elements = { entryResult: new MockNode() };
+const document = {
+  getElementById(id) { return elements[id]; },
+  createElement(tagName) { return new MockNode(tagName); }
+};
+""" + source + """
+renderEntryResult({bp_vs_market: null, bp_vs_bank_price: 2.5}, '中国银行');
+const nullState = {
+  text: elements.entryResult.textContent,
+  children: elements.entryResult.children.length,
+  innerHTMLWrites: elements.entryResult.innerHTMLWrites
+};
+renderEntryResult({bp_vs_bank_price: 'bad'}, '<b>银行</b>');
+const missingState = {
+  text: elements.entryResult.textContent,
+  children: elements.entryResult.children.length,
+  innerHTMLWrites: elements.entryResult.innerHTMLWrites
+};
+process.stdout.write(JSON.stringify({nullState, missingState}));
+""")
+        expected = {
+            "text": "结果数据不完整，请稍后重试",
+            "children": 0,
+            "innerHTMLWrites": 0,
+        }
+        self.assertEqual(result["nullState"], expected)
+        self.assertEqual(result["missingState"], expected)
+
+    @unittest.skipUnless(NODE_BINARY, "Node.js is required for submit behavior")
+    def test_submit_deduplicates_and_ignores_stale_control_snapshot(self):
+        select_pair_source = self.extract_js(
+            "function selectPair(pair)",
+            "function renderPairTabs()",
+        )
+        self.assertIn("invalidateEntrySubmission()", select_pair_source)
+        source = self.extract_js(
+            "let entryTimeMode = 'current';",
+            "async function loadEntries()",
+        )
+        result = self.run_node_json(self.NODE_DOM_PRELUDE + """
+const elements = {
+  entrySubmit: Object.assign(new MockNode('button'), { disabled: false }),
+  entryBank: Object.assign(new MockNode('select'), { value: '中国银行' }),
+  entryDir: Object.assign(new MockNode('select'), { value: '买入价' }),
+  entryQuote: Object.assign(new MockNode('input'), { value: '6.7700' }),
+  entryDate: Object.assign(new MockNode('input'), { value: '' }),
+  entryTime: Object.assign(new MockNode('input'), { value: '' }),
+  entryTimeCurrent: new MockNode('button'),
+  entryTimeHistorical: new MockNode('button'),
+  historicalTimeFields: Object.assign(new MockNode(), { hidden: true }),
+  entryContext: new MockNode(),
+  entryResult: new MockNode()
+};
+elements.entryResult.textContent = '等待新结果';
+const document = {
+  getElementById(id) { return elements[id]; },
+  createElement(tagName) { return new MockNode(tagName); }
+};
+let activePair = 'USDCNY';
+const requests = [];
+const fetch = url => new Promise(resolve => requests.push({url, resolve}));
+const console = { error() {} };
+let loadEntriesCalls = 0;
+function loadEntries() { loadEntriesCalls += 1; }
+""" + source + """
+(async () => {
+  const first = submitEntry();
+  const duplicate = submitEntry();
+  await Promise.resolve();
+  const pending = {
+    requestCount: requests.length,
+    disabled: elements.entrySubmit.disabled,
+    firstUrl: requests[0].url
+  };
+
+  elements.entryBank.value = '民生银行';
+  if (elements.entryBank.listeners.change) {
+    elements.entryBank.listeners.change();
+  }
+  requests.forEach(request => request.resolve({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      bp_vs_market: 7.4,
+      bp_vs_bank_price: 2.5
+    })
+  }));
+  await Promise.all([first, duplicate]);
+  const stale = {
+    text: elements.entryResult.textContent,
+    children: elements.entryResult.children.length,
+    disabled: elements.entrySubmit.disabled,
+    loadEntriesCalls
+  };
+
+  const retry = submitEntry();
+  await Promise.resolve();
+  const retryPending = {
+    requestCount: requests.length,
+    disabled: elements.entrySubmit.disabled,
+    url: requests[requests.length - 1].url
+  };
+  requests[requests.length - 1].resolve({
+    ok: false,
+    json: async () => ({error: '<b>重试失败</b>'})
+  });
+  await retry;
+  const retryError = {
+    text: elements.entryResult.textContent,
+    disabled: elements.entrySubmit.disabled,
+    innerHTMLWrites: elements.entryResult.innerHTMLWrites
+  };
+
+  process.stdout.write(JSON.stringify({pending, stale, retryPending, retryError}));
+})().catch(error => {
+  process.stderr.write(error.stack + '\\n');
+  process.exit(1);
+});
+""")
+        self.assertEqual(result["pending"]["requestCount"], 1)
+        self.assertTrue(result["pending"]["disabled"])
+        self.assertIn("pair=USDCNY", result["pending"]["firstUrl"])
+        self.assertIn(
+            "bank=%E4%B8%AD%E5%9B%BD%E9%93%B6%E8%A1%8C",
+            result["pending"]["firstUrl"],
+        )
+        self.assertEqual(result["stale"], {
+            "text": "等待新结果",
+            "children": 0,
+            "disabled": False,
+            "loadEntriesCalls": 1,
+        })
+        self.assertEqual(result["retryPending"]["requestCount"], 2)
+        self.assertTrue(result["retryPending"]["disabled"])
+        self.assertIn(
+            "bank=%E6%B0%91%E7%94%9F%E9%93%B6%E8%A1%8C",
+            result["retryPending"]["url"],
+        )
+        self.assertEqual(result["retryError"], {
+            "text": "<b>重试失败</b>",
+            "disabled": False,
+            "innerHTMLWrites": 0,
+        })
+
     def test_loading_and_request_failures_are_inline_and_retryable(self):
         for start_marker, end_marker in [
             ("async function fetchQuotes()", "// ── 图表 ──"),
@@ -1267,7 +1705,7 @@ process.stdout.write(JSON.stringify({
             self.skipTest("Node.js is required for dynamic frontend rendering")
         behavior_script = (
             self.extract_js('const PAIRS = ["USDCNY"', "function renderChart(data)")
-            + self.extract_js("async function submitEntry()", "async function loadEntries()")
+            + self.extract_js("let entryTimeMode = 'current';", "async function loadEntries()")
             + load_entries_source
         )
         result = self.run_node_json(self.NODE_DOM_PRELUDE + """
@@ -1281,12 +1719,17 @@ const elements = {
   chartPair: Object.assign(new MockNode('select'), { value: 'USDCNY' }),
   chartBank: Object.assign(new MockNode('select'), { value: '中国银行' }),
   chartDate: Object.assign(new MockNode('input'), { value: '2026-07-13' }),
-  entryPair: Object.assign(new MockNode('select'), { value: 'USDCNY' }),
+  entryPair: Object.assign(new MockNode('input'), { value: 'USDCNY' }),
   entryBank: Object.assign(new MockNode('select'), { value: '中国银行' }),
   entryDir: Object.assign(new MockNode('select'), { value: '买入价' }),
   entryQuote: Object.assign(new MockNode('input'), { value: '6.7700' }),
   entryDate: Object.assign(new MockNode('input'), { value: '' }),
   entryTime: Object.assign(new MockNode('input'), { value: '' }),
+  historicalTimeFields: Object.assign(new MockNode(), { hidden: true }),
+  entryTimeCurrent: new MockNode('button'),
+  entryTimeHistorical: new MockNode('button'),
+  entryContext: new MockNode(),
+  entrySubmit: Object.assign(new MockNode('button'), { disabled: false }),
   entryResult: new MockNode(),
   entryRecent: new MockNode(),
   activeEntryPair: new MockNode(),
@@ -1429,7 +1872,9 @@ function errorState(container) {
   fetchMode = 'submit-success';
   await submitEntry();
   await Promise.resolve();
-  const submitSuccessHTML = elements.entryResult.innerHTML;
+  const submitSuccessText = elements.entryResult.children.flatMap(
+    row => row.children.map(child => child.textContent)
+  ).join(' | ');
   const callsAfterSuccess = loadEntriesCalls;
   process.stdout.write(JSON.stringify({
     pairSelection,
@@ -1456,7 +1901,8 @@ function errorState(container) {
       failureText: submitFailureText,
       callsBeforeSubmit,
       callsAfterFailure,
-      successHTML: submitSuccessHTML,
+      successText: submitSuccessText,
+      innerHTMLWrites: elements.entryResult.innerHTMLWrites,
       callsAfterSuccess
     }
   }));
@@ -1524,10 +1970,10 @@ function errorState(container) {
             result["submit"]["callsBeforeSubmit"],
         )
         for marker in [
-            "比较基准", "市场成本", "你的报价",
-            "银行赚取", "与银行牌价比较",
+            "对比市场成本", "对比中国银行牌价", "你赚", "优惠",
         ]:
-            self.assertIn(marker, result["submit"]["successHTML"])
+            self.assertIn(marker, result["submit"]["successText"])
+        self.assertEqual(result["submit"]["innerHTMLWrites"], 0)
         self.assertEqual(
             result["submit"]["callsAfterSuccess"],
             result["submit"]["callsBeforeSubmit"] + 1,
