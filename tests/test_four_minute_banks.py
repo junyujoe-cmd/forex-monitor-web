@@ -681,16 +681,42 @@ class HistoricalQuoteLookupTests(unittest.TestCase):
             result = database.get_history_series(
                 "USDCNY",
                 ["中国银行"],
-                "bid",
                 "2026-07-15T10:00:00",
                 "2026-07-15T10:05:00",
                 max_points=3,
             )
 
         self.assertLessEqual(len(result["market"]), 3)
-        self.assertLessEqual(len(result["banks"]["中国银行"]), 3)
-        self.assertEqual(result["market"][0], ["2026-07-15T10:00:00", 6.70])
-        self.assertEqual(result["banks"]["中国银行"][0], ["2026-07-15T10:00:00", 6.69])
+        self.assertLessEqual(len(result["banks"]["中国银行"]["bid"]), 3)
+        self.assertLessEqual(len(result["banks"]["中国银行"]["ask"]), 3)
+        self.assertEqual(result["market"][0], ["2026-07-15T10:00:00", 6.71])
+        self.assertEqual(
+            result["banks"]["中国银行"]["bid"][0],
+            ["2026-07-15T10:00:00", 6.69],
+        )
+        self.assertEqual(
+            result["banks"]["中国银行"]["ask"][0],
+            ["2026-07-15T10:00:00", 6.73],
+        )
+
+    def test_history_endpoint_limits_comparison_to_two_banks(self):
+        fake_db = Mock()
+        fake_db.get_history_series.return_value = {"market": [], "banks": {}}
+
+        with patch.object(server, "db", fake_db):
+            result = asyncio.run(
+                server.get_history(
+                    "USDCNY",
+                    "中国银行,杭州银行,工商银行",
+                    24,
+                    None,
+                    None,
+                )
+            )
+
+        self.assertTrue(result["ok"])
+        args = fake_db.get_history_series.call_args.args
+        self.assertEqual(args[1], ["中国银行", "杭州银行"])
 
     def test_historical_entry_returns_separate_actual_timestamps(self):
         fake_db = Mock()
@@ -2437,11 +2463,19 @@ class AllPairsWorkbenchFrontendTests(unittest.TestCase):
 
     def test_history_controls_and_chart_click_to_entry_are_wired(self):
         for marker in [
-            'id="historyPair"', 'id="historyPriceType"',
+            'id="historyPair"',
             'data-hours="24"', 'data-hours="168"', 'data-hours="720"',
             'id="historySources"', 'id="historyChart"',
             "function handleChartPoint", "setEntryTimeMode('historical')",
             "market_compare_time", "bank_compare_time",
+        ]:
+            self.assertIn(marker, self.html)
+        self.assertNotIn('id="historyPriceType"', self.html)
+        for marker in [
+            'market:"#e7bd66"', 'firstBid:"#57d9b5"',
+            'firstAsk:"#ff8178"', 'secondBid:"#8bdcc5"',
+            'secondAsk:"#ffaaa3"', "checked.length > 2",
+            '${bank} 买入价', '${bank} 卖出价',
         ]:
             self.assertIn(marker, self.html)
 

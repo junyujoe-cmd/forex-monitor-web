@@ -32,7 +32,7 @@ button{cursor:pointer}
 .historical-control{display:none}.historical-control.visible{display:block;grid-column:4/6;grid-row:2}.entry-help{margin-top:7px;color:var(--timestamp);font-size:7px}.entry-error{color:var(--danger)}
 .result-box{display:flex;flex-direction:column;justify-content:center;padding:10px 12px;border-right:1px solid var(--line)}.result-label{color:var(--muted);font-size:8px;line-height:1.45}.result-value{margin-top:3px;color:var(--accent);font:800 21px ui-monospace,monospace}.result-value.negative{color:var(--ask)}.result-unit{font-size:7px;margin-left:4px;color:var(--muted)}
 .recent-strip{grid-column:1/-1;display:flex;height:29px;align-items:center;gap:18px;padding:0 11px;border-top:1px solid var(--line);overflow:hidden;white-space:nowrap;color:var(--muted);font-size:7px}.recent-title{color:var(--timestamp)}.recent-item strong{color:var(--text);font-weight:650}.recent-item span{margin-left:6px}
-.history-shell{min-height:470px;padding:10px}.history-toolbar{display:grid;grid-template-columns:140px 120px auto minmax(260px,1fr);gap:8px;align-items:end;padding:0 0 10px}.field label,.source-label{display:block;margin-bottom:5px;color:var(--muted);font-size:8px}.field .control{width:100%}.range-buttons{display:flex}.range-button{height:32px;padding:0 11px;border:1px solid var(--line);border-right:0;background:#081119;color:var(--muted);font-size:8px}.range-button:last-child{border-right:1px solid var(--line)}.range-button.active{border-color:var(--accent);background:rgba(87,217,181,.08);color:var(--accent)}
+.history-shell{min-height:470px;padding:10px}.history-toolbar{display:grid;grid-template-columns:140px auto minmax(300px,1fr);gap:8px;align-items:end;padding:0 0 10px}.field label,.source-label{display:block;margin-bottom:5px;color:var(--muted);font-size:8px}.field .control{width:100%}.range-buttons{display:flex}.range-button{height:32px;padding:0 11px;border:1px solid var(--line);border-right:0;background:#081119;color:var(--muted);font-size:8px}.range-button:last-child{border-right:1px solid var(--line)}.range-button.active{border-color:var(--accent);background:rgba(87,217,181,.08);color:var(--accent)}
 .source-options{display:flex;align-items:center;gap:11px;min-height:32px;overflow-x:auto;white-space:nowrap}.source-option{color:var(--muted);font-size:8px}.source-option input{margin-right:4px;accent-color:var(--accent)}.source-option.locked{color:var(--market)}
 .custom-range{display:none;grid-column:1/-1;grid-template-columns:200px 200px;gap:8px}.custom-range.visible{display:grid}
 .chart-wrap{position:relative;height:395px;border:1px solid var(--soft);background:#09131b}#historyChart{width:100%;height:100%}.chart-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:10px;pointer-events:none}.history-note{margin-top:7px;color:var(--timestamp);font-size:8px}
@@ -59,9 +59,8 @@ button{cursor:pointer}
     <div class="history-shell">
       <div class="history-toolbar">
         <div class="field"><label for="historyPair">货币对</label><select class="control" id="historyPair"></select></div>
-        <div class="field"><label for="historyPriceType">价格类型</label><select class="control" id="historyPriceType"><option value="bid">买入价</option><option value="ask">卖出价</option></select></div>
         <div><span class="source-label">时间范围</span><div class="range-buttons"><button class="range-button active" data-hours="24">24小时</button><button class="range-button" data-hours="168">7天</button><button class="range-button" data-hours="720">30天</button><button class="range-button" data-hours="custom">自定义</button></div></div>
-        <div><span class="source-label">对比来源（最多选择三家银行）</span><div class="source-options" id="historySources"></div></div>
+        <div><span class="source-label">对比银行（最多选择两家，同时显示买入价和卖出价）</span><div class="source-options" id="historySources"></div></div>
         <div class="custom-range" id="customRange"><div class="field"><label for="historyStart">开始时间</label><input class="control" id="historyStart" type="datetime-local"></div><div class="field"><label for="historyEnd">结束时间</label><input class="control" id="historyEnd" type="datetime-local"></div></div>
       </div>
       <div class="chart-wrap"><div id="historyChart"></div><div class="chart-empty" id="chartEmpty">正在读取历史数据</div></div>
@@ -93,7 +92,7 @@ button{cursor:pointer}
 const PAIRS = ["USDCNY", "EURCNY", "HKDCNY", "JPYCNY"];
 const BANKS = ["中国银行", "招商银行", "建设银行", "杭州银行", "工商银行", "农业银行", "邮储银行", "民生银行"];
 const PAIR_NAMES = {USDCNY:"美元兑人民币",EURCNY:"欧元兑人民币",HKDCNY:"港币兑人民币",JPYCNY:"日元兑人民币"};
-const COLORS = ["#57d9b5","#72a7ff","#b48cff"];
+const HISTORY_COLORS = {market:"#e7bd66",firstBid:"#57d9b5",firstAsk:"#ff8178",secondBid:"#8bdcc5",secondAsk:"#ffaaa3"};
 let quoteData = {cfets:{},banks:{},timestamp:""};
 let selectedCell = null;
 let activeHistoryHours = "24";
@@ -120,7 +119,7 @@ function populateControls(){
   byId("entryPair").innerHTML = pairOptions;
   byId("historyPair").innerHTML = pairOptions;
   byId("entryBank").innerHTML = BANKS.map(bank => `<option>${bank}</option>`).join("");
-  const defaultBanks = new Set(["中国银行","杭州银行","工商银行"]);
+  const defaultBanks = new Set(["中国银行","杭州银行"]);
   byId("historySources").innerHTML = `<label class="source-option locked"><input type="checkbox" checked disabled>CFETS</label>` + BANKS.map(bank => `<label class="source-option"><input type="checkbox" value="${bank}" ${defaultBanks.has(bank) ? "checked" : ""}>${bank}</label>`).join("");
 }
 
@@ -228,7 +227,7 @@ async function loadEntries(){
 
 function selectedHistoryBanks(){return [...byId("historySources").querySelectorAll('input:not(:disabled):checked')].map(input => input.value)}
 function historyQuery(){
-  const params = new URLSearchParams({pair:byId("historyPair").value,price:byId("historyPriceType").value,banks:selectedHistoryBanks().join(",")});
+  const params = new URLSearchParams({pair:byId("historyPair").value,banks:selectedHistoryBanks().join(",")});
   if(activeHistoryHours === "custom"){params.set("start",byId("historyStart").value);params.set("end",byId("historyEnd").value)}else params.set("hours",activeHistoryHours);
   return params;
 }
@@ -243,20 +242,28 @@ async function loadHistory(){
 }
 function renderHistory(data){
   if(!historyChart) historyChart = echarts.init(byId("historyChart"));
-  const series = [{name:"CFETS",type:"line",showSymbol:true,symbolSize:4,data:data.market || [],lineStyle:{width:2,color:"#e7bd66"},itemStyle:{color:"#e7bd66"}}];
-  Object.entries(data.banks || {}).forEach(([bank,points],index) => series.push({name:bank,type:"line",showSymbol:true,symbolSize:4,data:points,lineStyle:{width:1.5,color:COLORS[index]},itemStyle:{color:COLORS[index]}}));
+  const series = [{name:"CFETS 中间价",type:"line",showSymbol:true,symbolSize:4,data:data.market || [],lineStyle:{width:2,color:HISTORY_COLORS.market},itemStyle:{color:HISTORY_COLORS.market}}];
+  Object.entries(data.banks || {}).forEach(([bank,bankData],index) => {
+    const bidColor = index === 0 ? HISTORY_COLORS.firstBid : HISTORY_COLORS.secondBid;
+    const askColor = index === 0 ? HISTORY_COLORS.firstAsk : HISTORY_COLORS.secondAsk;
+    series.push(
+      {name:`${bank} 买入价`,type:"line",showSymbol:true,symbolSize:4,data:bankData.bid || [],lineStyle:{width:1.5,color:bidColor},itemStyle:{color:bidColor}},
+      {name:`${bank} 卖出价`,type:"line",showSymbol:true,symbolSize:4,data:bankData.ask || [],lineStyle:{width:1.5,color:askColor},itemStyle:{color:askColor}},
+    );
+  });
   const hasData = series.some(item => item.data.length);
   byId("chartEmpty").classList.toggle("hidden",hasData);
   if(!hasData) byId("chartEmpty").textContent = "这个时间范围内暂无历史数据";
   historyChart.off("click");
-  historyChart.setOption({animation:false,backgroundColor:"transparent",color:["#e7bd66",...COLORS],legend:{top:11,textStyle:{color:"#82949b",fontSize:9}},grid:{left:62,right:24,top:48,bottom:42},tooltip:{trigger:"axis",backgroundColor:"#101e28",borderColor:"#20313b",textStyle:{color:"#e3ecee",fontSize:10}},xAxis:{type:"time",axisLine:{lineStyle:{color:"#20313b"}},axisLabel:{color:"#60757e",fontSize:8},splitLine:{show:false}},yAxis:{type:"value",scale:true,axisLabel:{color:"#60757e",fontSize:8},splitLine:{lineStyle:{color:"#172730"}}},series},true);
+  historyChart.setOption({animation:false,backgroundColor:"transparent",legend:{top:11,textStyle:{color:"#82949b",fontSize:9}},grid:{left:62,right:24,top:48,bottom:42},tooltip:{trigger:"axis",backgroundColor:"#101e28",borderColor:"#20313b",textStyle:{color:"#e3ecee",fontSize:10}},xAxis:{type:"time",axisLine:{lineStyle:{color:"#20313b"}},axisLabel:{color:"#60757e",fontSize:8},splitLine:{show:false}},yAxis:{type:"value",scale:true,axisLabel:{color:"#60757e",fontSize:8},splitLine:{lineStyle:{color:"#172730"}}},series},true);
   historyChart.on("click",handleChartPoint);
 }
 function handleChartPoint(params){
   const value = Array.isArray(params.value) ? params.value[0] : params.value;
   if(!value) return;
   byId("entryPair").value = byId("historyPair").value;
-  if(params.seriesName !== "CFETS" && BANKS.includes(params.seriesName)) byId("entryBank").value = params.seriesName;
+  const selectedBank = BANKS.find(bank => params.seriesName.startsWith(`${bank} `));
+  if(selectedBank) byId("entryBank").value = selectedBank;
   byId("entryDateTime").value = localDateTime(value);
   setEntryTimeMode('historical');
   updateEntryLabels();
@@ -272,8 +279,8 @@ function switchView(name){
 function bindEvents(){
   byId("viewLive").addEventListener("click",() => switchView("live"));byId("viewHistory").addEventListener("click",() => switchView("history"));
   byId("entryPair").addEventListener("change",updateEntryLabels);byId("entryBank").addEventListener("change",updateEntryLabels);byId("entryMode").addEventListener("change",event => setEntryTimeMode(event.target.value));byId("entryForm").addEventListener("submit",submitEntry);
-  byId("historyPair").addEventListener("change",loadHistory);byId("historyPriceType").addEventListener("change",loadHistory);
-  byId("historySources").addEventListener("change",event => {const checked = selectedHistoryBanks();if(checked.length > 3){event.target.checked=false;return}loadHistory()});
+  byId("historyPair").addEventListener("change",loadHistory);
+  byId("historySources").addEventListener("change",event => {const checked = selectedHistoryBanks();if(checked.length > 2){event.target.checked=false;return}loadHistory()});
   document.querySelectorAll(".range-button").forEach(button => button.addEventListener("click",() => {activeHistoryHours=button.dataset.hours;document.querySelectorAll(".range-button").forEach(item => item.classList.toggle("active",item===button));byId("customRange").classList.toggle("visible",activeHistoryHours==="custom");if(activeHistoryHours!=="custom") loadHistory()}));
   byId("historyStart").addEventListener("change",loadHistory);byId("historyEnd").addEventListener("change",loadHistory);window.addEventListener("resize",() => historyChart?.resize());
 }

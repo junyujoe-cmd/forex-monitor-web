@@ -226,19 +226,16 @@ async def get_chart(
 @app.get("/api/history")
 async def get_history(
     pair: str = Query("USDCNY"),
-    banks: str = Query("中国银行,杭州银行,工商银行"),
-    price: str = Query("bid"),
+    banks: str = Query("中国银行,杭州银行"),
     hours: int = Query(24),
     start: str = Query(None),
     end: str = Query(None),
 ):
-    """返回市场价和最多三家银行的历史曲线。"""
+    """返回 CFETS 中间价和最多两家银行的买入、卖出曲线。"""
     if pair not in CURRENCY_PAIRS:
         return {"ok": False, "error": "不支持该货币对"}
-    if price not in ("bid", "ask"):
-        return {"ok": False, "error": "价格类型只能是买入价或卖出价"}
 
-    selected_banks = [name for name in banks.split(",") if name in BANKS][:3]
+    selected_banks = [name for name in banks.split(",") if name in BANKS][:2]
     try:
         end_dt = datetime.fromisoformat(end) if end else datetime.now()
         start_dt = datetime.fromisoformat(start) if start else end_dt - timedelta(hours=max(1, hours))
@@ -250,14 +247,12 @@ async def get_history(
     data = db.get_history_series(
         pair,
         selected_banks,
-        price,
         start_dt.isoformat(),
         end_dt.isoformat(),
     )
     return {
         "ok": True,
         "pair": pair,
-        "price": price,
         "start": start_dt.isoformat(),
         "end": end_dt.isoformat(),
         **data,

@@ -225,28 +225,31 @@ class Database:
             "bank_ask": b_row[2] if b_row else None,
         }
 
-    def get_history_series(self, pair, banks, price_type, start_ts, end_ts, max_points=1440):
-        """Return aligned chart series without modifying stored history."""
-        price_column = "bid" if price_type == "bid" else "ask"
+    def get_history_series(self, pair, banks, start_ts, end_ts, max_points=1440):
+        """Return CFETS mid and bank bid/ask chart series."""
         conn = self._get_conn()
-        market_rows = conn.execute(f"""
-            SELECT timestamp, COALESCE({price_column}, mid)
+        market_rows = conn.execute("""
+            SELECT timestamp, mid
             FROM market_quotes
             WHERE pair = ? AND timestamp >= ? AND timestamp <= ?
-              AND COALESCE({price_column}, mid) IS NOT NULL
+              AND mid IS NOT NULL
             ORDER BY timestamp ASC, id ASC
         """, (pair, start_ts, end_ts)).fetchall()
 
         bank_rows = {}
         for bank in banks:
-            bank_rows[bank] = conn.execute(f"""
-                SELECT timestamp, {price_column}
+            rows = conn.execute("""
+                SELECT timestamp, bid, ask
                 FROM bank_quotes
                 WHERE bank = ? AND pair = ?
                   AND timestamp >= ? AND timestamp <= ?
-                  AND {price_column} IS NOT NULL
+                  AND (bid IS NOT NULL OR ask IS NOT NULL)
                 ORDER BY timestamp ASC, id ASC
             """, (bank, pair, start_ts, end_ts)).fetchall()
+            bank_rows[bank] = {
+                "bid": [(row[0], row[1]) for row in rows if row[1] is not None],
+                "ask": [(row[0], row[2]) for row in rows if row[2] is not None],
+            }
         conn.close()
 
         def sample(rows):
@@ -259,7 +262,13 @@ class Database:
 
         return {
             "market": sample(market_rows),
-            "banks": {bank: sample(rows) for bank, rows in bank_rows.items()},
+            "banks": {
+                bank: {
+                    "bid": sample(rows["bid"]),
+                    "ask": sample(rows["ask"]),
+                }
+                for bank, rows in bank_rows.items()
+            },
         }
 
     def save_user_entry(self, pair, bank, direction, user_quote, market_cost, bank_cost, bp_vs_market, bp_vs_bank):
