@@ -2483,13 +2483,26 @@ class AllPairsWorkbenchFrontendTests(unittest.TestCase):
         for marker in [
             "function normalizeHistoryPoints",
             'secondBid:"#b7e35f"', 'secondAsk:"#f59ac3"',
-            "symbolSize:2", "width:1.2",
-            "width:1,color:bidColor", "width:1,color:askColor",
+            "showSymbol:false", "symbolSize:1", "width:0.8",
+            "width:0.7,color:bidColor", "width:0.7,color:askColor",
             "normalizeHistoryPoints(data.market)",
             "normalizeHistoryPoints(bankData.bid)",
             "normalizeHistoryPoints(bankData.ask)",
         ]:
             self.assertIn(marker, self.html)
+
+    def test_history_defaults_to_boc_and_anchors_24_hours_at_0930(self):
+        for marker in [
+            'const defaultBanks = new Set(["中国银行"]);',
+            "function previousTradingDayRange",
+            "start.setDate(start.getDate()-1)",
+            "start.setHours(9,30,0,0)",
+            'activeHistoryHours === "24"',
+            'params.set("start",range.start)',
+            'params.set("end",range.end)',
+        ]:
+            self.assertIn(marker, self.html)
+        self.assertNotIn('new Set(["中国银行","杭州银行"])', self.html)
 
     @unittest.skipUnless(NODE_BINARY, "Node.js is required for JavaScript syntax validation")
     def test_inline_javascript_is_syntactically_valid(self):

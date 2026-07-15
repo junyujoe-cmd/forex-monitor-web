@@ -64,7 +64,7 @@ button{cursor:pointer}
         <div class="custom-range" id="customRange"><div class="field"><label for="historyStart">开始时间</label><input class="control" id="historyStart" type="datetime-local"></div><div class="field"><label for="historyEnd">结束时间</label><input class="control" id="historyEnd" type="datetime-local"></div></div>
       </div>
       <div class="chart-wrap"><div id="historyChart"></div><div class="chart-empty" id="chartEmpty">正在读取历史数据</div></div>
-      <div class="history-note">点击图表中的任意数据点，会自动切换为历史录入并带入该时间。</div>
+      <div class="history-note">点击图表中的任意折线位置，会自动切换为历史录入并带入该时间。</div>
     </div>
   </section>
 
@@ -112,6 +112,12 @@ function localDateTime(value){
   const pad = number => String(number).padStart(2,"0");
   return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+function previousTradingDayRange(now=new Date()){
+  const start = new Date(now);
+  start.setDate(start.getDate()-1);
+  start.setHours(9,30,0,0);
+  return {start:localDateTime(start),end:localDateTime(now)};
+}
 function quoteTime(quote){return timeLabel(quote?.source_time || quote?.timestamp || quote?.fetch_time || quoteData.timestamp)}
 
 function populateControls(){
@@ -119,7 +125,7 @@ function populateControls(){
   byId("entryPair").innerHTML = pairOptions;
   byId("historyPair").innerHTML = pairOptions;
   byId("entryBank").innerHTML = BANKS.map(bank => `<option>${bank}</option>`).join("");
-  const defaultBanks = new Set(["中国银行","杭州银行"]);
+  const defaultBanks = new Set(["中国银行"]);
   byId("historySources").innerHTML = `<label class="source-option locked"><input type="checkbox" checked disabled>CFETS</label>` + BANKS.map(bank => `<label class="source-option"><input type="checkbox" value="${bank}" ${defaultBanks.has(bank) ? "checked" : ""}>${bank}</label>`).join("");
 }
 
@@ -228,7 +234,9 @@ async function loadEntries(){
 function selectedHistoryBanks(){return [...byId("historySources").querySelectorAll('input:not(:disabled):checked')].map(input => input.value)}
 function historyQuery(){
   const params = new URLSearchParams({pair:byId("historyPair").value,banks:selectedHistoryBanks().join(",")});
-  if(activeHistoryHours === "custom"){params.set("start",byId("historyStart").value);params.set("end",byId("historyEnd").value)}else params.set("hours",activeHistoryHours);
+  if(activeHistoryHours === "custom"){params.set("start",byId("historyStart").value);params.set("end",byId("historyEnd").value)}
+  else if(activeHistoryHours === "24"){const range=previousTradingDayRange();params.set("start",range.start);params.set("end",range.end)}
+  else params.set("hours",activeHistoryHours);
   return params;
 }
 async function loadHistory(){
@@ -249,13 +257,13 @@ function normalizeHistoryPoints(points){
 }
 function renderHistory(data){
   if(!historyChart) historyChart = echarts.init(byId("historyChart"));
-  const series = [{name:"CFETS 中间价",type:"line",showSymbol:true,symbolSize:2,data:normalizeHistoryPoints(data.market),lineStyle:{width:1.2,color:HISTORY_COLORS.market},itemStyle:{color:HISTORY_COLORS.market},emphasis:{scale:2,lineStyle:{width:1.2}}}];
+  const series = [{name:"CFETS 中间价",type:"line",showSymbol:false,symbolSize:1,data:normalizeHistoryPoints(data.market),lineStyle:{width:0.8,color:HISTORY_COLORS.market},itemStyle:{color:HISTORY_COLORS.market},emphasis:{scale:3,lineStyle:{width:0.8}}}];
   Object.entries(data.banks || {}).forEach(([bank,bankData],index) => {
     const bidColor = index === 0 ? HISTORY_COLORS.firstBid : HISTORY_COLORS.secondBid;
     const askColor = index === 0 ? HISTORY_COLORS.firstAsk : HISTORY_COLORS.secondAsk;
     series.push(
-      {name:`${bank} 买入价`,type:"line",showSymbol:true,symbolSize:2,data:normalizeHistoryPoints(bankData.bid),lineStyle:{width:1,color:bidColor},itemStyle:{color:bidColor},emphasis:{scale:2,lineStyle:{width:1}}},
-      {name:`${bank} 卖出价`,type:"line",showSymbol:true,symbolSize:2,data:normalizeHistoryPoints(bankData.ask),lineStyle:{width:1,color:askColor},itemStyle:{color:askColor},emphasis:{scale:2,lineStyle:{width:1}}},
+      {name:`${bank} 买入价`,type:"line",showSymbol:false,symbolSize:1,data:normalizeHistoryPoints(bankData.bid),lineStyle:{width:0.7,color:bidColor},itemStyle:{color:bidColor},emphasis:{scale:3,lineStyle:{width:0.7}}},
+      {name:`${bank} 卖出价`,type:"line",showSymbol:false,symbolSize:1,data:normalizeHistoryPoints(bankData.ask),lineStyle:{width:0.7,color:askColor},itemStyle:{color:askColor},emphasis:{scale:3,lineStyle:{width:0.7}}},
     );
   });
   const hasData = series.some(item => item.data.length);
