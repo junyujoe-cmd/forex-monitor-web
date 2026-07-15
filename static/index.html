@@ -265,7 +265,7 @@ function renderHistory(data){
   const dailyAxis = activeHistoryHours !== "today";
   const axisStep = 30*60*1000;
   const axisLabel = value => {const date=new Date(value);const pad=number=>String(number).padStart(2,"0");return dailyAxis ? `${date.getMonth()+1}.${pad(date.getDate())}` : `${pad(date.getHours())}:${pad(date.getMinutes())}`};
-  const showAxisLabel = (index,value) => {const date=new Date(value);return dailyAxis ? date.getHours() === 9 && date.getMinutes() === 30 : date.getMinutes() % 30 === 0};
+  const showAxisLabel = (index,value) => {const date=new Date(value);return dailyAxis ? date.getHours() === 9 && date.getMinutes() === 30 : value === axisData[axisData.length-1] || date.getMinutes() % 30 === 0};
   const series = [{name:"CFETS 中间价",type:"line",showSymbol:false,symbolSize:1,data:normalizeHistoryPoints(data.market),lineStyle:{width:0.8,color:HISTORY_COLORS.market},itemStyle:{color:HISTORY_COLORS.market},emphasis:{scale:3,lineStyle:{width:0.8}}}];
   Object.entries(data.banks || {}).forEach(([bank,bankData],index) => {
     const bidColor = index === 0 ? HISTORY_COLORS.firstBid : HISTORY_COLORS.secondBid;
@@ -278,17 +278,19 @@ function renderHistory(data){
   const axisTimes = [data.start];
   const rangeStart = new Date(data.start);
   const rangeEnd = new Date(data.end);
+  const displayEnd = new Date(rangeEnd);
+  if(activeHistoryHours === "today"){displayEnd.setTime(rangeStart.getTime());displayEnd.setDate(displayEnd.getDate()+1);displayEnd.setHours(2,59,0,0)}
   const axisCursor = new Date(rangeStart);
   axisCursor.setSeconds(0,0);
   if(axisCursor.getMinutes() !== 0 && axisCursor.getMinutes() !== 30){axisCursor.setMinutes(axisCursor.getMinutes() < 30 ? 30 : 60)}
-  while(axisCursor <= rangeEnd){axisTimes.push(`${localDateTime(axisCursor)}:00`);axisCursor.setTime(axisCursor.getTime()+axisStep)}
-  axisTimes.push(data.end);
+  while(axisCursor <= displayEnd){axisTimes.push(`${localDateTime(axisCursor)}:00`);axisCursor.setTime(axisCursor.getTime()+axisStep)}
+  axisTimes.push(localDateTime(displayEnd));
   const axisData = [...new Set(axisTimes)].sort();
   const hasData = series.some(item => item.data.length);
   byId("chartEmpty").classList.toggle("hidden",hasData);
   if(!hasData) byId("chartEmpty").textContent = "这个时间范围内暂无历史数据";
   historyChart.off("click");
-  historyChart.setOption({animation:false,backgroundColor:"transparent",legend:{top:11,textStyle:{color:"#82949b",fontSize:9}},grid:{left:62,right:24,top:48,bottom:42},tooltip:{trigger:"axis",axisPointer:{type:"line",snap:true},backgroundColor:"#101e28",borderColor:"#20313b",textStyle:{color:"#e3ecee",fontSize:10}},xAxis:[{type:"time",min:data.start,max:data.end,boundaryGap:false,axisLine:{show:false},axisTick:{show:false},axisLabel:{show:false},splitLine:{show:false}},{type:"category",position:"bottom",offset:0,data:axisData,boundaryGap:false,axisPointer:{show:false},axisLine:{lineStyle:{color:"#20313b"}},axisLabel:{color:"#60757e",fontSize:8,hideOverlap:false,interval:showAxisLabel,formatter:axisLabel},splitLine:{show:false}}],yAxis:{type:"value",scale:true,axisLabel:{color:"#60757e",fontSize:8},splitLine:{lineStyle:{color:"#172730"}}},series},true);
+  historyChart.setOption({animation:false,backgroundColor:"transparent",legend:{top:11,textStyle:{color:"#82949b",fontSize:9}},grid:{left:62,right:24,top:48,bottom:42},tooltip:{trigger:"axis",axisPointer:{type:"line",snap:true},backgroundColor:"#101e28",borderColor:"#20313b",textStyle:{color:"#e3ecee",fontSize:10}},xAxis:[{type:"time",min:data.start,max:displayEnd,boundaryGap:false,axisLine:{show:false},axisTick:{show:false},axisLabel:{show:false},splitLine:{show:false}},{type:"category",position:"bottom",offset:0,data:axisData,boundaryGap:false,axisPointer:{show:false},axisLine:{lineStyle:{color:"#20313b"}},axisLabel:{color:"#60757e",fontSize:8,hideOverlap:false,interval:showAxisLabel,formatter:axisLabel},splitLine:{show:false}}],yAxis:{type:"value",scale:true,axisLabel:{color:"#60757e",fontSize:8},splitLine:{lineStyle:{color:"#172730"}}},series},true);
   historyChart.on("click",handleChartPoint);
 }
 function handleChartPoint(params){
