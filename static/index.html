@@ -92,7 +92,7 @@ button{cursor:pointer}
 const PAIRS = ["USDCNY", "EURCNY", "HKDCNY", "JPYCNY"];
 const BANKS = ["中国银行", "招商银行", "建设银行", "杭州银行", "工商银行", "农业银行", "邮储银行", "民生银行"];
 const PAIR_NAMES = {USDCNY:"美元兑人民币",EURCNY:"欧元兑人民币",HKDCNY:"港币兑人民币",JPYCNY:"日元兑人民币"};
-const HISTORY_COLORS = {market:"#e7bd66",firstBid:"#57d9b5",firstAsk:"#ff8178",secondBid:"#8bdcc5",secondAsk:"#ffaaa3"};
+const HISTORY_COLORS = {market:"#e7bd66",firstBid:"#57d9b5",firstAsk:"#ff8178",secondBid:"#b7e35f",secondAsk:"#f59ac3"};
 let quoteData = {cfets:{},banks:{},timestamp:""};
 let selectedCell = null;
 let activeHistoryHours = "24";
@@ -240,22 +240,29 @@ async function loadHistory(){
     renderHistory(data);
   }catch(error){byId("chartEmpty").textContent = error.message || "历史数据读取失败"}
 }
+function normalizeHistoryPoints(points){
+  const minutes = new Map();
+  (points || []).forEach(([timestamp,value]) => {
+    minutes.set(`${String(timestamp).slice(0,16)}:00`,value);
+  });
+  return [...minutes.entries()];
+}
 function renderHistory(data){
   if(!historyChart) historyChart = echarts.init(byId("historyChart"));
-  const series = [{name:"CFETS 中间价",type:"line",showSymbol:true,symbolSize:4,data:data.market || [],lineStyle:{width:2,color:HISTORY_COLORS.market},itemStyle:{color:HISTORY_COLORS.market}}];
+  const series = [{name:"CFETS 中间价",type:"line",showSymbol:true,symbolSize:2,data:normalizeHistoryPoints(data.market),lineStyle:{width:1.2,color:HISTORY_COLORS.market},itemStyle:{color:HISTORY_COLORS.market},emphasis:{scale:2,lineStyle:{width:1.2}}}];
   Object.entries(data.banks || {}).forEach(([bank,bankData],index) => {
     const bidColor = index === 0 ? HISTORY_COLORS.firstBid : HISTORY_COLORS.secondBid;
     const askColor = index === 0 ? HISTORY_COLORS.firstAsk : HISTORY_COLORS.secondAsk;
     series.push(
-      {name:`${bank} 买入价`,type:"line",showSymbol:true,symbolSize:4,data:bankData.bid || [],lineStyle:{width:1.5,color:bidColor},itemStyle:{color:bidColor}},
-      {name:`${bank} 卖出价`,type:"line",showSymbol:true,symbolSize:4,data:bankData.ask || [],lineStyle:{width:1.5,color:askColor},itemStyle:{color:askColor}},
+      {name:`${bank} 买入价`,type:"line",showSymbol:true,symbolSize:2,data:normalizeHistoryPoints(bankData.bid),lineStyle:{width:1,color:bidColor},itemStyle:{color:bidColor},emphasis:{scale:2,lineStyle:{width:1}}},
+      {name:`${bank} 卖出价`,type:"line",showSymbol:true,symbolSize:2,data:normalizeHistoryPoints(bankData.ask),lineStyle:{width:1,color:askColor},itemStyle:{color:askColor},emphasis:{scale:2,lineStyle:{width:1}}},
     );
   });
   const hasData = series.some(item => item.data.length);
   byId("chartEmpty").classList.toggle("hidden",hasData);
   if(!hasData) byId("chartEmpty").textContent = "这个时间范围内暂无历史数据";
   historyChart.off("click");
-  historyChart.setOption({animation:false,backgroundColor:"transparent",legend:{top:11,textStyle:{color:"#82949b",fontSize:9}},grid:{left:62,right:24,top:48,bottom:42},tooltip:{trigger:"axis",backgroundColor:"#101e28",borderColor:"#20313b",textStyle:{color:"#e3ecee",fontSize:10}},xAxis:{type:"time",axisLine:{lineStyle:{color:"#20313b"}},axisLabel:{color:"#60757e",fontSize:8},splitLine:{show:false}},yAxis:{type:"value",scale:true,axisLabel:{color:"#60757e",fontSize:8},splitLine:{lineStyle:{color:"#172730"}}},series},true);
+  historyChart.setOption({animation:false,backgroundColor:"transparent",legend:{top:11,textStyle:{color:"#82949b",fontSize:9}},grid:{left:62,right:24,top:48,bottom:42},tooltip:{trigger:"axis",axisPointer:{type:"line",snap:true},backgroundColor:"#101e28",borderColor:"#20313b",textStyle:{color:"#e3ecee",fontSize:10}},xAxis:{type:"time",axisLine:{lineStyle:{color:"#20313b"}},axisLabel:{color:"#60757e",fontSize:8},splitLine:{show:false}},yAxis:{type:"value",scale:true,axisLabel:{color:"#60757e",fontSize:8},splitLine:{lineStyle:{color:"#172730"}}},series},true);
   historyChart.on("click",handleChartPoint);
 }
 function handleChartPoint(params){

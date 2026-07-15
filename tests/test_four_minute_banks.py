@@ -2473,9 +2473,21 @@ class AllPairsWorkbenchFrontendTests(unittest.TestCase):
         self.assertNotIn('id="historyPriceType"', self.html)
         for marker in [
             'market:"#e7bd66"', 'firstBid:"#57d9b5"',
-            'firstAsk:"#ff8178"', 'secondBid:"#8bdcc5"',
-            'secondAsk:"#ffaaa3"', "checked.length > 2",
+            'firstAsk:"#ff8178"', 'secondBid:"#b7e35f"',
+            'secondAsk:"#f59ac3"', "checked.length > 2",
             '${bank} 买入价', '${bank} 卖出价',
+        ]:
+            self.assertIn(marker, self.html)
+
+    def test_history_chart_uses_aligned_thin_distinct_series(self):
+        for marker in [
+            "function normalizeHistoryPoints",
+            'secondBid:"#b7e35f"', 'secondAsk:"#f59ac3"',
+            "symbolSize:2", "width:1.2",
+            "width:1,color:bidColor", "width:1,color:askColor",
+            "normalizeHistoryPoints(data.market)",
+            "normalizeHistoryPoints(bankData.bid)",
+            "normalizeHistoryPoints(bankData.ask)",
         ]:
             self.assertIn(marker, self.html)
 
