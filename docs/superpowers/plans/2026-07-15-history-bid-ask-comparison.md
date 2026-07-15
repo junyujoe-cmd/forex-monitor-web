@@ -75,3 +75,43 @@ Bank 2 ask: "#ffaaa3"
 - [ ] Confirm `git status --short` lists no tracked changes outside the intended source, test, spec, and plan files, and keeps `data/` untracked.
 
 - [ ] Commit the implementation locally. Do not upload to Alibaba Cloud until the user accepts the local result.
+
+### Task 4: Precision chart refinement
+
+**Files:**
+- Modify: `static/index.html`
+- Test: `tests/test_four_minute_banks.py`
+
+- [ ] Add failing frontend assertions for minute alignment, the revised second-bank palette, 2px points, and 1.2px/1px line widths.
+
+```python
+for marker in [
+    "function normalizeHistoryPoints",
+    'secondBid:"#b7e35f"',
+    'secondAsk:"#f59ac3"',
+    "symbolSize:2",
+    "width:1.2",
+    "width:1,color:bidColor",
+]:
+    self.assertIn(marker, self.html)
+```
+
+- [ ] Run the targeted frontend test and confirm it fails against the current chart settings.
+
+- [ ] Normalize chart timestamps without changing stored data:
+
+```javascript
+function normalizeHistoryPoints(points){
+  const minutes = new Map();
+  (points || []).forEach(([timestamp,value]) => {
+    minutes.set(`${String(timestamp).slice(0,16)}:00`,value);
+  });
+  return [...minutes.entries()];
+}
+```
+
+- [ ] Apply normalized points to CFETS and every bank series, use yellow-green `#b7e35f` and rose-red `#f59ac3` for the second bank, use 2px symbols, and set CFETS/bank line widths to 1.2px/1px.
+
+- [ ] Run the targeted frontend test, JavaScript syntax test, and full unittest suite.
+
+- [ ] Restart the local service, verify the history API remains unchanged, and commit only source and test files. Keep Alibaba Cloud deployment paused.
