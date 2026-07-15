@@ -83,14 +83,17 @@ English: The top navigation contains “Live Overview” and “Historical Chart
 历史视图控件 / Historical view controls:
 
 - 货币对选择 / Currency-pair selector
-- 买入价、卖出价选择 / Bid or ask selector
 - 每分钟数据间隔 / One-minute data interval
 - 24 小时、7 天、30 天、自定义范围 / 24-hour, 7-day, 30-day, and custom ranges
-- CFETS 与银行数据源选择 / CFETS and bank-source selection
+- 最多两家银行选择 / Selection of up to two banks
 
-中文：建议图表同时显示不超过 4 条线，以避免八家银行全部叠加后难以阅读。右侧数据源列表保留所有银行，用户可随时切换。
+中文：用户不再选择买入价或卖出价。CFETS 固定显示一条市场中间价曲线；每家已选银行同时显示买入价和卖出价。选择一家银行时共显示 3 条线，选择两家银行时共显示 5 条线。
 
-English: The chart should show no more than four lines at once to avoid visual clutter. The source list on the right retains every bank so users can switch sources at any time.
+English: Users no longer choose between bid and ask. CFETS always shows one market-mid curve, while every selected bank shows both bid and ask. Selecting one bank produces three lines; selecting two banks produces five lines.
+
+中文：CFETS 中间价使用金色。第一家银行的买入价使用绿色、卖出价使用红色；第二家银行使用有明显区分但仍属于同一语义的浅绿色和浅红色。图例必须同时写明银行名称和价格类型，例如“中国银行 买入价”。
+
+English: The CFETS mid-price is gold. The first bank uses green for bid and red for ask; the second bank uses clearly differentiated lighter green and lighter red while preserving the same bid/ask meaning. Every legend item includes both the bank name and price type, such as “Bank of China Bid”.
 
 ## 7. 响应与状态 / Interaction and States
 
@@ -108,6 +111,8 @@ English: Price refreshes preserve the current view, filters, and entry values. P
 - English: Both current-time and historical-time entries can be calculated and saved.
 - 中文：历史计算明确展示选定时间和实际采用的数据时间，且不使用未来数据。
 - English: Historical calculations clearly show selected and actual data timestamps and never use future data.
+- 中文：历史图表固定显示 CFETS 中间价，并同时显示最多两家银行各自的买入价和卖出价，不提供买入或卖出的单选控件。
+- English: The historical chart always shows the CFETS mid-price together with both bid and ask prices for up to two selected banks, without a bid-or-ask selector.
 - 中文：现有历史数据库继续沿用，不删除、不重建历史数据。
 - English: The existing historical database is preserved without deletion or rebuilding.
 
