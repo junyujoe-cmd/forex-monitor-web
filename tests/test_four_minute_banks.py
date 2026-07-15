@@ -621,6 +621,103 @@ class NewBankPipelineTests(unittest.TestCase):
         self.assertTrue(any(row[2] == 6.76 and row[3] == 6.79 for row in rows))
 
 
+class HistoricalQuoteLookupTests(unittest.TestCase):
+    def test_historical_lookup_uses_only_records_at_or_before_selected_time(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Database(str(Path(tmp) / "quotes.db"))
+            conn = database._get_conn()
+            conn.executemany(
+                "INSERT INTO market_quotes "
+                "(fetch_cycle, timestamp, pair, bid, ask, mid, source) "
+                "VALUES (?, ?, 'USDCNY', ?, ?, ?, 'CFETS')",
+                [
+                    ("past-market", "2026-07-15T10:04:00", 6.70, 6.72, 6.71),
+                    ("future-market", "2026-07-15T10:06:00", 9.00, 9.10, 9.05),
+                ],
+            )
+            conn.executemany(
+                "INSERT INTO bank_quotes "
+                "(fetch_cycle, timestamp, bank, pair, bid, ask) "
+                "VALUES (?, ?, '中国银行', 'USDCNY', ?, ?)",
+                [
+                    ("past-bank", "2026-07-15T10:03:00", 6.69, 6.73),
+                    ("future-bank", "2026-07-15T10:07:00", 9.00, 9.20),
+                ],
+            )
+            conn.commit()
+            conn.close()
+
+            result = database.get_quotes_at_time(
+                "USDCNY", "中国银行", "2026-07-15T10:05"
+            )
+
+        self.assertEqual(result["market_bid"], 6.70)
+        self.assertEqual(result["bank_bid"], 6.69)
+        self.assertEqual(result["market_timestamp"], "2026-07-15T10:04:00")
+        self.assertEqual(result["bank_timestamp"], "2026-07-15T10:03:00")
+
+    def test_history_series_returns_market_and_selected_banks_with_point_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Database(str(Path(tmp) / "quotes.db"))
+            conn = database._get_conn()
+            for minute in range(6):
+                timestamp = f"2026-07-15T10:0{minute}:00"
+                cycle = f"cycle-{minute}"
+                conn.execute(
+                    "INSERT INTO market_quotes "
+                    "(fetch_cycle, timestamp, pair, bid, ask, mid, source) "
+                    "VALUES (?, ?, 'USDCNY', ?, ?, ?, 'CFETS')",
+                    (cycle, timestamp, 6.70 + minute / 1000, 6.72, 6.71),
+                )
+                conn.execute(
+                    "INSERT INTO bank_quotes "
+                    "(fetch_cycle, timestamp, bank, pair, bid, ask) "
+                    "VALUES (?, ?, '中国银行', 'USDCNY', ?, ?)",
+                    (cycle, timestamp, 6.69 + minute / 1000, 6.73),
+                )
+            conn.commit()
+            conn.close()
+
+            result = database.get_history_series(
+                "USDCNY",
+                ["中国银行"],
+                "bid",
+                "2026-07-15T10:00:00",
+                "2026-07-15T10:05:00",
+                max_points=3,
+            )
+
+        self.assertLessEqual(len(result["market"]), 3)
+        self.assertLessEqual(len(result["banks"]["中国银行"]), 3)
+        self.assertEqual(result["market"][0], ["2026-07-15T10:00:00", 6.70])
+        self.assertEqual(result["banks"]["中国银行"][0], ["2026-07-15T10:00:00", 6.69])
+
+    def test_historical_entry_returns_separate_actual_timestamps(self):
+        fake_db = Mock()
+        fake_db.get_quotes_at_time.return_value = {
+            "market_timestamp": "2026-07-15T10:04:00",
+            "bank_timestamp": "2026-07-15T10:03:00",
+            "market_bid": 6.70,
+            "market_ask": 6.72,
+            "market_mid": 6.71,
+            "bank_bid": 6.69,
+            "bank_ask": 6.73,
+        }
+
+        with patch.object(server, "db", fake_db):
+            result = asyncio.run(
+                server.save_entry(
+                    "USDCNY", "中国银行", "买入价", 6.695,
+                    "2026-07-15T10:05",
+                )
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["market_compare_time"], "2026-07-15T10:04")
+        self.assertEqual(result["bank_compare_time"], "2026-07-15T10:03")
+
+
+@unittest.skip("Superseded by AllPairsWorkbenchFrontendTests")
 class QuoteMatrixFrontendTests(unittest.TestCase):
     NODE_DOM_PRELUDE = """
 class MockNode {
@@ -2309,6 +2406,56 @@ process.stdout.write(JSON.stringify({{
         self.assertIn("button.setAttribute('role', 'tab')", self.html)
         self.assertIn("button.setAttribute('aria-selected'", self.html)
         self.assertIn("买入 ' + bid + '，卖出 ' + ask", self.html)
+
+class AllPairsWorkbenchFrontendTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.html = (Path(__file__).parents[1] / "static" / "index.html").read_text()
+
+    def test_live_matrix_contains_four_pairs_nine_sources_and_compact_entry(self):
+        for marker in [
+            'id="liveView"', 'id="historyView"', 'id="quoteMatrix"',
+            'id="entryBar"', 'id="viewLive"', 'id="viewHistory"',
+            "quote-grid", "quote-cell", "quote-timestamp",
+        ]:
+            self.assertIn(marker, self.html)
+        self.assertIn('const PAIRS = ["USDCNY", "EURCNY", "HKDCNY", "JPYCNY"]', self.html)
+        for bank in BANKS:
+            self.assertIn(bank, self.html)
+
+    def test_approved_price_hierarchy_and_single_timestamp_color_are_present(self):
+        normalized = re.sub(r"\s+", "", self.html)
+        for rule in [
+            "--timestamp:#60757e",
+            ".pair-code{font:80017px",
+            ".market-price{font:80016px",
+            ".quote-value{font:80014px",
+            ".quote-timestamp{color:var(--timestamp);font:6007px",
+        ]:
+            self.assertIn(rule, normalized)
+        self.assertNotIn("quote-timestamp stale", self.html)
+
+    def test_history_controls_and_chart_click_to_entry_are_wired(self):
+        for marker in [
+            'id="historyPair"', 'id="historyPriceType"',
+            'data-hours="24"', 'data-hours="168"', 'data-hours="720"',
+            'id="historySources"', 'id="historyChart"',
+            "function handleChartPoint", "setEntryTimeMode('historical')",
+            "market_compare_time", "bank_compare_time",
+        ]:
+            self.assertIn(marker, self.html)
+
+    @unittest.skipUnless(NODE_BINARY, "Node.js is required for JavaScript syntax validation")
+    def test_inline_javascript_is_syntactically_valid(self):
+        scripts = re.findall(r"<script>([\s\S]*?)</script>", self.html)
+        self.assertEqual(len(scripts), 1)
+        subprocess.run(
+            [NODE_BINARY, "--check", "-"],
+            input=scripts[0],
+            text=True,
+            check=True,
+            capture_output=True,
+        )
 
 
 if __name__ == "__main__":

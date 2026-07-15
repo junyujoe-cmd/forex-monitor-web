@@ -23,7 +23,7 @@ from bank_fetcher import (
     fetch_icbc_rates,
     fetch_psbc_rates,
 )
-from config import CURRENCY_PAIRS, DB_PATH
+from config import BANKS, CURRENCY_PAIRS, DB_PATH
 
 # ── 初始化数据库 ──────────────────────────────────────────
 db = Database()
@@ -223,6 +223,47 @@ async def get_chart(
     }
 
 
+@app.get("/api/history")
+async def get_history(
+    pair: str = Query("USDCNY"),
+    banks: str = Query("中国银行,杭州银行,工商银行"),
+    price: str = Query("bid"),
+    hours: int = Query(24),
+    start: str = Query(None),
+    end: str = Query(None),
+):
+    """返回市场价和最多三家银行的历史曲线。"""
+    if pair not in CURRENCY_PAIRS:
+        return {"ok": False, "error": "不支持该货币对"}
+    if price not in ("bid", "ask"):
+        return {"ok": False, "error": "价格类型只能是买入价或卖出价"}
+
+    selected_banks = [name for name in banks.split(",") if name in BANKS][:3]
+    try:
+        end_dt = datetime.fromisoformat(end) if end else datetime.now()
+        start_dt = datetime.fromisoformat(start) if start else end_dt - timedelta(hours=max(1, hours))
+    except ValueError:
+        return {"ok": False, "error": "历史时间格式不正确"}
+    if start_dt >= end_dt:
+        return {"ok": False, "error": "开始时间必须早于结束时间"}
+
+    data = db.get_history_series(
+        pair,
+        selected_banks,
+        price,
+        start_dt.isoformat(),
+        end_dt.isoformat(),
+    )
+    return {
+        "ok": True,
+        "pair": pair,
+        "price": price,
+        "start": start_dt.isoformat(),
+        "end": end_dt.isoformat(),
+        **data,
+    }
+
+
 @app.post("/api/entry")
 async def save_entry(
     pair: str = Query(...),
@@ -235,7 +276,7 @@ async def save_entry(
     if time:
         hist = db.get_quotes_at_time(pair, bank, time)
         if not hist:
-            return {"ok": False, "error": f"未找到 {time} 附近的报价数据，请换个时间"}
+            return {"ok": False, "error": f"未找到 {time} 之前的报价数据，请换个时间"}
         market_cost = (
             hist.get("market_bid") if direction == "买入价"
             else hist.get("market_ask")
@@ -244,7 +285,11 @@ async def save_entry(
             return {"ok": False, "error": f"{time} 附近报价缺少方向化市场价"}
         bank_bid = hist["bank_bid"]
         bank_ask = hist["bank_ask"]
-        compare_time = hist["timestamp"][:16]
+        market_timestamp = hist.get("market_timestamp") or hist.get("timestamp")
+        bank_timestamp = hist.get("bank_timestamp", market_timestamp)
+        market_compare_time = market_timestamp[:16]
+        bank_compare_time = bank_timestamp[:16] if bank_timestamp else None
+        compare_time = market_compare_time
     else:
         market = cfets_cache.get(pair, {})
         market_cost = (
@@ -257,6 +302,8 @@ async def save_entry(
         bank_bid = bq.get("bid") if bq else None
         bank_ask = bq.get("ask") if bq else None
         compare_time = "当前实时"
+        market_compare_time = compare_time
+        bank_compare_time = compare_time
 
     if bank_bid is None or bank_ask is None:
         return {
@@ -290,6 +337,8 @@ async def save_entry(
         "bank_bid": bank_bid,
         "bank_ask": bank_ask,
         "compare_time": compare_time,
+        "market_compare_time": market_compare_time,
+        "bank_compare_time": bank_compare_time,
     }
 
 

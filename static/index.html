@@ -2,705 +2,284 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>实时外汇监控系统</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{--page:#070b10;--panel:#0e1620;--panel-raised:#131e29;--line:#20303d;--line-soft:#182630;--text:#dce5e8;--muted:#7f9098;--accent:#56d8b3;--bid:#56d8b3;--ask:#ff857a;--warn:#d8a84e;--danger:#e77770}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--page);color:var(--text);min-height:100vh;overflow-x:hidden}
-.app-shell{width:min(100%,1400px);min-height:100vh;display:flex;flex-direction:column;margin:0 auto;padding:8px}
-
-/* ── Header ── */
-.terminal-header{min-height:44px;padding:8px 13px;border:1px solid var(--line);border-bottom-color:var(--accent);background:var(--panel);display:flex;align-items:center;justify-content:space-between;gap:12px}
-.terminal-brand{display:flex;align-items:center;gap:9px;min-width:0}
-.brand-mark{width:28px;height:28px;border:1px solid rgba(86,216,179,.58);background:rgba(86,216,179,.08);color:var(--accent);display:grid;place-items:center;font-size:10px;font-weight:800;letter-spacing:.08em}
-.brand-copy h1{font-size:13px;line-height:1.2;color:var(--text);font-weight:650;letter-spacing:.02em}
-.brand-copy p{margin-top:2px;color:var(--muted);font-size:7px;letter-spacing:.16em}
-.terminal-state{display:flex;align-items:flex-end;flex-direction:column;gap:3px;white-space:nowrap}
-.live-status{display:flex;align-items:center;gap:6px;color:var(--accent);font-size:10px}
-.status-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px rgba(86,216,179,.09)}
-.update-time{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums}
-
-/* ── Panels ── */
-.panel{background:var(--panel);border:1px solid var(--line)}
-
-/* ── Focused Quote Board ── */
-.market-panel{margin-top:8px;background:rgba(14,22,32,.96);border:1px solid var(--line)}
-.market-head{min-height:38px;padding:0 10px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line-soft)}
-.pair-tabs{display:flex;max-width:100%;gap:2px;overflow-x:auto}
-.pair-tab{appearance:none;padding:6px 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:10px;cursor:pointer}
-.pair-tab.active{color:var(--text);border-bottom-color:var(--accent);background:#12211f}
-.market-reference{display:flex;align-items:baseline;gap:8px;color:var(--muted);font-size:9px}
-.market-reference strong{color:var(--text);font:700 14px ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
-.market-reference small{color:var(--muted)}
-.bank-quote-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
-.bank-quote{min-height:58px;padding:7px 10px;border-right:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)}
-.bank-quote:nth-child(4n){border-right:0}
-.bank-quote:nth-child(n+5){border-bottom:0}
-.bank-quote-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;color:var(--text);font-size:11px;font-weight:650}
-.bank-quote-head small{color:var(--muted);font-size:9px;font-weight:500;font-variant-numeric:tabular-nums}
-.bank-price-line,.bank-price-labels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;text-align:right}
-.bank-price-line{margin-top:4px;font:650 12px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;font-variant-numeric:tabular-nums}
-.bank-price-line .buy{color:var(--bid)}
-.bank-price-line .sell{color:var(--ask)}
-.bank-price-labels{margin-top:2px;color:var(--muted);font-size:8px}
-.quote-status{text-align:center;color:var(--muted);font-size:8px;line-height:1.2}
-.quote-status.ok{color:var(--accent)}
-.quote-status.partial{color:var(--warn)}
-.quote-status.missing{color:var(--danger)}
-
-/* ── Quote Workspace ── */
-.workspace-panel{margin-top:8px;flex:1;display:flex;min-height:0;flex-direction:column;background:var(--panel);border:1px solid var(--line);overflow:hidden}
-.workspace-tabs{display:flex;align-items:center;min-height:34px;gap:2px;padding:0 10px;background:var(--panel-raised);border-bottom:1px solid var(--line)}
-.tab-btn{appearance:none;min-width:92px;min-height:34px;padding:7px 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:11px;font-weight:650;letter-spacing:.03em;cursor:pointer;transition:color .14s ease,background-color .14s ease,border-color .14s ease}
-.tab-btn:hover{color:var(--text);background:rgba(220,229,232,.03)}
-.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(86,216,179,.055)}
-.tab-content{padding:0;min-height:0;flex:1;display:flex}
-.tab-pane{display:none}
-.tab-pane.active{display:flex;min-height:0;flex:1;flex-direction:column}
-.workbench{display:grid;flex:1;grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr)}
-.deal-ticket{min-width:0;border-right:1px solid var(--line)}
-.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px 0}
-.section-heading span{color:var(--accent);font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace}
-.deal-ticket h2,.chart-heading h2{color:var(--text);font-size:14px;font-weight:650}
-.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:10px}
-.ticket-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:8px 12px 7px;align-items:end}
-.field{display:flex;min-width:0;flex-direction:column;gap:4px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.02em}
-.field select,.field input{width:100%;min-height:34px;padding:6px 8px;border:1px solid var(--line);border-radius:2px;background:var(--page);color:var(--text);font:inherit;font-size:12px;outline:none}
-.field select:focus,.field input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(86,216,179,.08)}
-.field input::placeholder{color:var(--muted)}
-:is(button,select,input):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.btn{appearance:none;min-height:34px;padding:6px 14px;border:1px solid var(--accent);border-radius:2px;background:var(--accent);color:var(--page);font:inherit;font-size:11px;font-weight:750;cursor:pointer;transition:background-color .14s ease,color .14s ease}
-.btn:hover{background:#70e2c1}
-.time-mode{display:flex;gap:6px}
-.time-mode button{min-height:34px;padding:6px 10px;border:1px solid var(--line);background:var(--page);color:var(--muted);cursor:pointer}
-.time-mode button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
-.historical-time-fields{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.historical-time-fields[hidden]{display:none}
-.ticket-submit{justify-self:end}
-.entry-context{grid-column:1/-1;padding:0 12px 8px;color:var(--muted);font-size:9px}
-.result-summary{display:grid;min-width:0;align-content:center;min-height:104px;color:var(--muted)}
-.result-empty{padding:12px;text-align:center;font-size:10px}
-.result-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border-bottom:1px solid var(--line-soft)}
-.result-row:last-child{border-bottom:0}
-.result-row.positive .result-value{color:var(--bid)}
-.result-row.negative .result-value{color:var(--ask)}
-.result-row.neutral .result-value{color:var(--muted)}
-.result-value{font:800 23px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
-.recent-activity{display:flex;flex:0 0 auto;align-items:center;gap:18px;padding:8px 12px;border-top:1px solid var(--line-soft);white-space:nowrap;overflow:hidden;color:var(--muted);font-size:8px}
-.recent-entry{flex:0 0 auto;padding:0 18px 0 0;border-right:1px solid var(--line-soft)}
-.recent-entry:last-child{padding-right:0;border-right:0}
-.recent-entry-main{display:inline;color:var(--text);font-size:9px;font-weight:650}
-.recent-entry-meta{display:inline;margin-left:6px;color:var(--muted);font-size:8px;font-variant-numeric:tabular-nums}
-.inline-state{display:grid;min-height:112px;place-items:center;padding:20px;text-align:center;color:var(--muted);font-size:12px;line-height:1.6}
-.inline-error{color:var(--danger);border:1px solid rgba(231,119,112,.28);background:rgba(231,119,112,.045)}
-.skeleton-quote{pointer-events:none}
-.skeleton-line{display:inline-block;width:58px;height:8px;border-radius:1px;background:var(--line);vertical-align:middle}
-.skeleton-line+.skeleton-line{margin-left:10px;width:48px;background:var(--line-soft)}
-
-/* ── Chart ── */
-.chart-heading{padding:11px 12px 0}
-.chart-controls{grid-template-columns:160px minmax(220px,320px) 170px;gap:9px;align-items:end;margin:0;padding:9px 12px 10px}
-#chart{width:100%;min-height:330px;flex:1;border-top:1px solid var(--line-soft);overflow:hidden}
-
-/* ── Loading ── */
-.loading{text-align:center;padding:40px;color:#666;font-size:14px}
-
-/* ── Responsive ── */
-@media(max-width:800px){
-  .app-shell{padding:6px}
-  .terminal-header{align-items:flex-start}
-  .market-head{align-items:flex-start;flex-direction:column;padding:9px 10px}
-  .bank-quote-board{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .bank-quote:nth-child(2n){border-right:0}
-  .bank-quote:nth-child(n+5){border-bottom:1px solid var(--line-soft)}
-  .bank-quote:nth-child(n+7){border-bottom:0}
-  .tab-content{min-width:0}
-  .tab-pane.active{width:100%;min-width:0}
-  .workbench{grid-template-columns:1fr}
-  .deal-ticket{border-right:0;border-bottom:1px solid var(--line)}
-  .ticket-fields{grid-template-columns:1fr 1fr}
-  .recent-activity{overflow-x:auto}
-  .chart-controls{grid-template-columns:repeat(3,minmax(0,1fr))}
-}
-@media(max-width:560px){
-  .terminal-header{align-items:flex-start;flex-direction:column}
-  .live-meta{width:100%;align-items:center;flex-direction:row;justify-content:space-between}
-  .ticket-fields{grid-template-columns:1fr}
-  .chart-controls{grid-template-columns:1fr}
-  #chart{height:330px}
-}
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--page:#070c11;--panel:#0c1720;--raised:#101e28;--line:#20313b;--soft:#172730;--text:#e3ecee;--muted:#82949b;--timestamp:#60757e;--accent:#57d9b5;--bid:#59d9b6;--ask:#ff8178;--market:#e7bd66;--danger:#ff8178}
+html,body{min-height:100%;background:var(--page);color:var(--text)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;overflow-x:hidden}
+button,select,input{font:inherit}
+button{cursor:pointer}
+.app-shell{width:min(100%,1460px);min-height:100dvh;margin:auto;padding:8px;display:flex;flex-direction:column;gap:7px}
+.topbar{height:48px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 13px;border:1px solid var(--line);border-bottom-color:var(--accent);background:var(--panel)}
+.brand{display:flex;align-items:center;gap:9px}.brand-mark{width:28px;height:28px;display:grid;place-items:center;border:1px solid rgba(87,217,181,.55);color:var(--accent);font:800 9px ui-monospace,monospace}.brand h1{font-size:13px;letter-spacing:.02em}.brand p{margin-top:2px;color:var(--muted);font-size:7px;letter-spacing:.15em}
+.view-nav{height:100%;display:flex;align-items:stretch}.nav-button{min-width:78px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-size:10px;font-weight:700}.nav-button.active{border-bottom-color:var(--accent);background:rgba(87,217,181,.06);color:var(--accent)}
+.status{justify-self:end;text-align:right}.live{color:var(--accent);font-size:9px}.live::before{content:"";display:inline-block;width:5px;height:5px;margin-right:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 7px var(--accent)}.updated{margin-top:3px;color:var(--timestamp);font-size:8px;font-variant-numeric:tabular-nums}
+.panel{border:1px solid var(--line);background:var(--panel)}.view-panel{display:none}.view-panel.active{display:block}
+.matrix-scroll{overflow:auto}.quote-grid{display:grid;grid-template-columns:126px 116px repeat(8,minmax(118px,1fr));min-width:1186px}
+.grid-head{height:42px;padding:7px 10px;border-right:1px solid var(--soft);border-bottom:1px solid var(--line);color:var(--muted);font-size:8px;display:flex;flex-direction:column;justify-content:center}.grid-head strong{color:var(--text);font-size:9px}.grid-head span{margin-top:3px;color:var(--timestamp);font-size:7px}.grid-head.source{text-align:center;align-items:center}
+.pair-cell,.market-cell,.quote-cell{position:relative;height:92px;border-right:1px solid var(--soft);border-bottom:1px solid var(--line)}
+.pair-cell{padding:19px 12px}.pair-code{font:800 17px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.04em}.pair-name{margin-top:7px;color:var(--muted);font-size:8px}
+.market-cell{padding:23px 11px;text-align:center}.market-price{font:800 16px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--market);font-variant-numeric:tabular-nums}.market-label{margin-top:6px;color:var(--muted);font-size:7px}
+.quote-cell{width:100%;padding:19px 10px;border-top:0;border-left:0;background:transparent;color:var(--text);text-align:left}.quote-cell:hover,.quote-cell.selected{background:rgba(87,217,181,.045);box-shadow:inset 0 0 0 1px rgba(87,217,181,.28)}
+.quote-line{display:grid;grid-template-columns:14px 1fr;align-items:baseline;margin-bottom:8px}.quote-side{color:var(--timestamp);font-size:7px}.quote-value{font:800 14px ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}.quote-line.bid .quote-value{color:var(--bid)}.quote-line.ask .quote-value{color:var(--ask)}
+.quote-timestamp{color:var(--timestamp);font:600 7px ui-monospace,SFMono-Regular,Menlo,monospace;position:absolute;right:7px;bottom:6px;font-variant-numeric:tabular-nums}.empty-price{color:var(--timestamp)}
+.entry-bar{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(170px,.58fr) minmax(190px,.68fr);min-height:93px;border:1px solid var(--line);background:var(--panel)}
+.entry-form{padding:10px 11px;border-right:1px solid var(--line)}.entry-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;font-size:10px}.entry-title strong{font-size:11px}.active-pair{color:var(--accent);font:700 9px ui-monospace,monospace}
+.entry-fields{display:grid;grid-template-columns:105px 135px minmax(185px,1fr) 128px 94px 88px;gap:5px}.control{height:32px;padding:0 8px;border:1px solid var(--line);border-radius:0;background:#081119;color:var(--text);font-size:9px;outline:0}.control:focus{border-color:var(--accent)}.price-input{font:700 12px ui-monospace,monospace}.submit{border:1px solid var(--accent);background:var(--accent);color:#06110e;font-size:9px;font-weight:800}.submit:hover{background:#74e5c5}.submit:disabled{opacity:.5;cursor:wait}
+.historical-control{display:none}.historical-control.visible{display:block;grid-column:4/6;grid-row:2}.entry-help{margin-top:7px;color:var(--timestamp);font-size:7px}.entry-error{color:var(--danger)}
+.result-box{display:flex;flex-direction:column;justify-content:center;padding:10px 12px;border-right:1px solid var(--line)}.result-label{color:var(--muted);font-size:8px;line-height:1.45}.result-value{margin-top:3px;color:var(--accent);font:800 21px ui-monospace,monospace}.result-value.negative{color:var(--ask)}.result-unit{font-size:7px;margin-left:4px;color:var(--muted)}
+.recent-strip{grid-column:1/-1;display:flex;height:29px;align-items:center;gap:18px;padding:0 11px;border-top:1px solid var(--line);overflow:hidden;white-space:nowrap;color:var(--muted);font-size:7px}.recent-title{color:var(--timestamp)}.recent-item strong{color:var(--text);font-weight:650}.recent-item span{margin-left:6px}
+.history-shell{min-height:470px;padding:10px}.history-toolbar{display:grid;grid-template-columns:140px 120px auto minmax(260px,1fr);gap:8px;align-items:end;padding:0 0 10px}.field label,.source-label{display:block;margin-bottom:5px;color:var(--muted);font-size:8px}.field .control{width:100%}.range-buttons{display:flex}.range-button{height:32px;padding:0 11px;border:1px solid var(--line);border-right:0;background:#081119;color:var(--muted);font-size:8px}.range-button:last-child{border-right:1px solid var(--line)}.range-button.active{border-color:var(--accent);background:rgba(87,217,181,.08);color:var(--accent)}
+.source-options{display:flex;align-items:center;gap:11px;min-height:32px;overflow-x:auto;white-space:nowrap}.source-option{color:var(--muted);font-size:8px}.source-option input{margin-right:4px;accent-color:var(--accent)}.source-option.locked{color:var(--market)}
+.custom-range{display:none;grid-column:1/-1;grid-template-columns:200px 200px;gap:8px}.custom-range.visible{display:grid}
+.chart-wrap{position:relative;height:395px;border:1px solid var(--soft);background:#09131b}#historyChart{width:100%;height:100%}.chart-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:10px;pointer-events:none}.history-note{margin-top:7px;color:var(--timestamp);font-size:8px}
+.loading{min-height:410px;display:grid;place-items:center;color:var(--muted);font-size:10px;grid-column:1/-1}.hidden{display:none!important}
+@media(max-width:900px){.topbar{grid-template-columns:1fr auto}.view-nav{grid-row:2;grid-column:1/-1;height:35px}.topbar{height:82px}.status{grid-column:2;grid-row:1}.entry-bar{grid-template-columns:1fr 1fr}.entry-form{grid-column:1/-1;border-right:0;border-bottom:1px solid var(--line)}.entry-fields{grid-template-columns:repeat(3,1fr)}.history-toolbar{grid-template-columns:1fr 1fr}.source-options{grid-column:1/-1}.custom-range{grid-column:1/-1}.recent-strip{overflow-x:auto}}
 </style>
 </head>
 <body>
 <main class="app-shell">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">FX</div><div><h1>外汇报价工作台</h1><p>FOREIGN EXCHANGE MONITOR</p></div></div>
+    <nav class="view-nav" aria-label="视图切换">
+      <button class="nav-button active" id="viewLive" type="button">实时总览</button>
+      <button class="nav-button" id="viewHistory" type="button">历史图表</button>
+    </nav>
+    <div class="status"><div class="live">实时采集中</div><div class="updated" id="updateTime">最后更新 --</div></div>
+  </header>
 
-<!-- Header -->
-<header class="terminal-header">
-  <div class="terminal-brand">
-    <div class="brand-mark" aria-hidden="true">FX</div>
-    <div class="brand-copy">
-      <h1>外汇报价工作台</h1>
-      <p>FOREIGN EXCHANGE MONITOR</p>
-    </div>
-  </div>
-  <div class="terminal-state live-meta">
-    <div class="live-status"><span class="status-dot" aria-hidden="true"></span><span>实时采集中</span></div>
-    <span class="update-time" id="updateTime">最后更新 --</span>
-  </div>
-</header>
+  <section class="panel view-panel active" id="liveView">
+    <div class="matrix-scroll"><div class="quote-grid" id="quoteMatrix"><div class="loading">正在载入实时报价</div></div></div>
+  </section>
 
-<!-- Quotes -->
-<section class="panel market-panel" aria-labelledby="quotePanelTitle">
-  <h2 id="quotePanelTitle" hidden>实时银行报价</h2>
-  <div class="market-head">
-    <div class="pair-tabs" id="pairTabs" role="tablist" aria-label="货币对"></div>
-    <div class="market-reference" id="marketReference" role="status" aria-live="polite">
-      <span>CFETS 市场参考</span>
-      <strong id="marketReferenceValue">--</strong>
-      <small id="marketReferenceState">等待数据</small>
-    </div>
-  </div>
-  <div class="quotes" id="quotesContainer" aria-labelledby="quotePanelTitle"></div>
-</section>
-
-<!-- Quote Entry Workspace -->
-<section class="panel workspace-panel">
-  <nav class="workspace-tabs" role="tablist" aria-label="报价工作区">
-    <button class="tab-btn active" id="entryTab" type="button" role="tab" aria-selected="true" aria-controls="tab-entry" data-tab="entry">录入报价</button>
-    <button class="tab-btn" id="chartTab" type="button" role="tab" aria-selected="false" aria-controls="tab-chart" data-tab="chart">历史图表</button>
-  </nav>
-
-  <div class="tab-content">
-    <div class="tab-pane active" id="tab-entry" role="tabpanel" aria-labelledby="entryTab">
-      <input type="hidden" id="entryPair" value="USDCNY">
-      <div class="workbench">
-        <section class="deal-ticket" aria-labelledby="entryPanelTitle">
-          <div class="section-heading">
-            <h2 id="entryPanelTitle">客户报价录入</h2>
-            <span id="activeEntryPair">USDCNY</span>
-          </div>
-          <div class="ticket-fields">
-            <label class="field">银行
-              <select id="entryBank">
-                <option>中国银行</option><option>招商银行</option>
-                <option>建设银行</option><option>杭州银行</option>
-                <option>工商银行</option><option>农业银行</option>
-                <option>邮储银行</option><option>民生银行</option>
-              </select>
-            </label>
-            <label class="field">方向
-              <select id="entryDir">
-                <option value="买入价">银行买入（客户卖出）</option>
-                <option value="卖出价">银行卖出（客户买入）</option>
-              </select>
-            </label>
-            <label class="field">客户报价
-              <input type="number" id="entryQuote" step="0.0001" inputmode="decimal" placeholder="7.2400">
-            </label>
-            <div class="time-mode" role="group" aria-label="报价时间模式">
-              <button type="button" id="entryTimeCurrent" aria-pressed="true">当前</button>
-              <button type="button" id="entryTimeHistorical" aria-pressed="false">历史</button>
-            </div>
-            <div class="historical-time-fields" id="historicalTimeFields" hidden>
-              <label class="field">日期<input type="date" id="entryDate"></label>
-              <label class="field">时间<input type="time" id="entryTime"></label>
-            </div>
-            <button type="button" class="btn ticket-submit" id="entrySubmit" onclick="submitEntry()">计算并保存</button>
-          </div>
-          <p class="entry-context" id="entryContext">使用当前实时市场价与银行牌价计算</p>
-        </section>
-
-        <aside class="result-summary" id="entryResult" role="status" aria-live="polite">
-          <div class="result-empty">录入后显示计算结果</div>
-        </aside>
+  <section class="panel view-panel" id="historyView">
+    <div class="history-shell">
+      <div class="history-toolbar">
+        <div class="field"><label for="historyPair">货币对</label><select class="control" id="historyPair"></select></div>
+        <div class="field"><label for="historyPriceType">价格类型</label><select class="control" id="historyPriceType"><option value="bid">买入价</option><option value="ask">卖出价</option></select></div>
+        <div><span class="source-label">时间范围</span><div class="range-buttons"><button class="range-button active" data-hours="24">24小时</button><button class="range-button" data-hours="168">7天</button><button class="range-button" data-hours="720">30天</button><button class="range-button" data-hours="custom">自定义</button></div></div>
+        <div><span class="source-label">对比来源（最多选择三家银行）</span><div class="source-options" id="historySources"></div></div>
+        <div class="custom-range" id="customRange"><div class="field"><label for="historyStart">开始时间</label><input class="control" id="historyStart" type="datetime-local"></div><div class="field"><label for="historyEnd">结束时间</label><input class="control" id="historyEnd" type="datetime-local"></div></div>
       </div>
-      <div class="recent-activity" id="entryRecent" role="status" aria-live="polite">暂无录入记录</div>
+      <div class="chart-wrap"><div id="historyChart"></div><div class="chart-empty" id="chartEmpty">正在读取历史数据</div></div>
+      <div class="history-note">点击图表中的任意数据点，会自动切换为历史录入并带入该时间。</div>
     </div>
+  </section>
 
-    <div class="tab-pane" id="tab-chart" role="tabpanel" aria-labelledby="chartTab">
-      <div class="chart-heading">
-        <h2>历史报价图表</h2>
+  <section class="entry-bar" id="entryBar">
+    <form class="entry-form" id="entryForm">
+      <div class="entry-title"><strong>客户报价录入</strong><span class="active-pair" id="activePairLabel">USD/CNY</span></div>
+      <div class="entry-fields">
+        <select class="control" id="entryPair" aria-label="货币对"></select>
+        <select class="control" id="entryBank" aria-label="银行"></select>
+        <select class="control" id="entryDirection" aria-label="方向"><option value="买入价">银行买入（客户卖出）</option><option value="卖出价">银行卖出（客户买入）</option></select>
+        <input class="control price-input" id="entryQuote" type="number" step="0.0001" placeholder="输入客户报价" required>
+        <select class="control" id="entryMode" aria-label="时间模式"><option value="current">当前</option><option value="historical">历史</option></select>
+        <button class="submit" id="entrySubmit" type="submit">计算并保存</button>
+        <input class="control historical-control" id="entryDateTime" type="datetime-local" aria-label="历史时间">
       </div>
-      <div class="form-grid chart-controls">
-        <label class="field">货币对
-          <select id="chartPair" onchange="loadChart()">
-            <option>USDCNY</option><option>EURCNY</option><option>HKDCNY</option><option>JPYCNY</option>
-          </select>
-        </label>
-        <label class="field">银行
-          <select id="chartBank" onchange="loadChart()">
-            <option>中国银行</option><option>招商银行</option>
-            <option>建设银行</option><option>杭州银行</option>
-            <option>工商银行</option><option>农业银行</option>
-            <option>邮储银行</option><option>民生银行</option>
-          </select>
-        </label>
-        <label class="field">日期
-          <input type="date" id="chartDate" onchange="loadChart()">
-        </label>
-      </div>
-      <div id="chart" role="img" aria-label="所选货币对与银行的历史报价趋势图"></div>
-    </div>
-  </div>
-</section>
+      <div class="entry-help" id="entryHelp">点击上方任意银行报价，可自动带入货币对和银行。</div>
+    </form>
+    <div class="result-box"><div class="result-label" id="marketResultLabel">对比市场成本，你赚</div><div class="result-value" id="marketResult">--<span class="result-unit">bp</span></div></div>
+    <div class="result-box"><div class="result-label" id="bankResultLabel">对比中国银行牌价，优惠</div><div class="result-value" id="bankResult">--<span class="result-unit">bp</span></div></div>
+    <div class="recent-strip" id="recentEntries"><span class="recent-title">最近录入</span><span>暂无记录</span></div>
+  </section>
 </main>
 
 <script>
-// ── 全局状态 ──
-let chartInstance = null;
-let chartRequestId = 0;
-window.addEventListener('resize', () => { if (chartInstance) chartInstance.resize(); });
-
-// ── Tab 切换 ──
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => {
-      const active = b === btn;
-      b.classList.toggle('active', active);
-      b.setAttribute('aria-selected', String(active));
-      document.getElementById('tab-' + b.dataset.tab).classList.toggle('active', active);
-    });
-    if (btn.dataset.tab === 'chart') setTimeout(() => loadChart(), 50);
-  });
-});
-
-// ── 报价栏渲染 ──
 const PAIRS = ["USDCNY", "EURCNY", "HKDCNY", "JPYCNY"];
-const BANK_NAMES = [
-  "中国银行", "招商银行", "建设银行", "杭州银行",
-  "工商银行", "农业银行", "邮储银行", "民生银行"
-];
-let activePair = "USDCNY";
-let latestQuotes = null;
+const BANKS = ["中国银行", "招商银行", "建设银行", "杭州银行", "工商银行", "农业银行", "邮储银行", "民生银行"];
+const PAIR_NAMES = {USDCNY:"美元兑人民币",EURCNY:"欧元兑人民币",HKDCNY:"港币兑人民币",JPYCNY:"日元兑人民币"};
+const COLORS = ["#57d9b5","#72a7ff","#b48cff"];
+let quoteData = {cfets:{},banks:{},timestamp:""};
+let selectedCell = null;
+let activeHistoryHours = "24";
+let historyChart = null;
 
-function selectPair(pair) {
-  if (!PAIRS.includes(pair)) return;
-  const pairChanged = pair !== activePair;
-  activePair = pair;
-  if (pairChanged) invalidateEntrySubmission();
-  document.getElementById('entryPair').value = pair;
-  document.getElementById('chartPair').value = pair;
-  chartRequestId += 1;
-  if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
-  document.getElementById('chart').innerHTML = '<div class="loading">加载图表中...</div>';
-  const entryPairLabel = document.getElementById('activeEntryPair');
-  if (entryPairLabel) entryPairLabel.textContent = pair;
-  renderPairTabs();
-  if (latestQuotes) {
-    renderQuotes(latestQuotes.cfets, latestQuotes.banks, latestQuotes.timestamp);
-  }
-  loadChart();
+const byId = id => document.getElementById(id);
+const safe = value => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
+const pairLabel = pair => pair.slice(0,3) + "/" + pair.slice(3);
+const price = value => Number.isFinite(Number(value)) ? Number(value).toFixed(4) : "--";
+function timeLabel(value){
+  if(!value) return "--:--";
+  const match = String(value).match(/(?:T|\s)(\d{2}:\d{2})/);
+  return match ? match[1] : "--:--";
+}
+function localDateTime(value){
+  const date = new Date(value);
+  const pad = number => String(number).padStart(2,"0");
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+function quoteTime(quote){return timeLabel(quote?.source_time || quote?.timestamp || quote?.fetch_time || quoteData.timestamp)}
+
+function populateControls(){
+  const pairOptions = PAIRS.map(pair => `<option value="${pair}">${pairLabel(pair)}</option>`).join("");
+  byId("entryPair").innerHTML = pairOptions;
+  byId("historyPair").innerHTML = pairOptions;
+  byId("entryBank").innerHTML = BANKS.map(bank => `<option>${bank}</option>`).join("");
+  const defaultBanks = new Set(["中国银行","杭州银行","工商银行"]);
+  byId("historySources").innerHTML = `<label class="source-option locked"><input type="checkbox" checked disabled>CFETS</label>` + BANKS.map(bank => `<label class="source-option"><input type="checkbox" value="${bank}" ${defaultBanks.has(bank) ? "checked" : ""}>${bank}</label>`).join("");
 }
 
-function renderPairTabs() {
-  const tabs = document.getElementById('pairTabs');
-  const focusedPair = document.activeElement && document.activeElement.dataset
-    ? document.activeElement.dataset.pair : null;
-  const buttons = PAIRS.map(pair => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'pair-tab' + (pair === activePair ? ' active' : '');
-    button.dataset.pair = pair;
-    button.tabIndex = pair === activePair ? 0 : -1;
-    button.setAttribute('role', 'tab');
-    button.setAttribute('aria-selected', String(pair === activePair));
-    button.textContent = pair;
-    button.addEventListener('click', () => selectPair(pair));
-    button.addEventListener('keydown', event => {
-      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-      event.preventDefault();
-      const step = event.key === 'ArrowRight' ? 1 : -1;
-      const nextIndex = (PAIRS.indexOf(pair) + step + PAIRS.length) % PAIRS.length;
-      selectPair(PAIRS[nextIndex]);
+function renderMatrix(){
+  const head = [`<div class="grid-head"><strong>货币对</strong><span>PAIR</span></div>`,`<div class="grid-head source"><strong>CFETS</strong><span>市场参考</span></div>`]
+    .concat(BANKS.map(bank => `<div class="grid-head source"><strong>${bank}</strong><span>买入 / 卖出</span></div>`));
+  const rows = PAIRS.flatMap(pair => {
+    const market = quoteData.cfets?.[pair] || {};
+    const marketValue = market.mid ?? ((Number(market.bid) + Number(market.ask)) / 2);
+    const cells = [
+      `<div class="pair-cell"><div class="pair-code">${pairLabel(pair)}</div><div class="pair-name">${PAIR_NAMES[pair]}</div></div>`,
+      `<div class="market-cell"><div class="market-price">${price(marketValue)}</div><div class="market-label">市场中间价</div><span class="quote-timestamp">${quoteTime(market)}</span></div>`
+    ];
+    BANKS.forEach(bank => {
+      const quote = quoteData.banks?.[bank]?.[pair] || {};
+      const isSelected = selectedCell === `${pair}|${bank}`;
+      cells.push(`<button class="quote-cell${isSelected ? " selected" : ""}" type="button" data-pair="${pair}" data-bank="${bank}" aria-label="${bank} ${pairLabel(pair)}，买入 ${price(quote.bid)}，卖出 ${price(quote.ask)}"><span class="quote-line bid"><span class="quote-side">买</span><span class="quote-value${quote.bid == null ? " empty-price" : ""}">${price(quote.bid)}</span></span><span class="quote-line ask"><span class="quote-side">卖</span><span class="quote-value${quote.ask == null ? " empty-price" : ""}">${price(quote.ask)}</span></span><span class="quote-timestamp">${quoteTime(quote)}</span></button>`);
     });
-    return button;
+    return cells;
   });
-  tabs.replaceChildren(...buttons);
-  if (PAIRS.includes(focusedPair)) {
-    buttons[PAIRS.indexOf(activePair)].focus();
+  byId("quoteMatrix").innerHTML = head.concat(rows).join("");
+  byId("quoteMatrix").querySelectorAll(".quote-cell").forEach(cell => cell.addEventListener("click", () => selectQuote(cell.dataset.pair, cell.dataset.bank)));
+}
+
+function selectQuote(pair,bank){
+  selectedCell = `${pair}|${bank}`;
+  byId("entryPair").value = pair;
+  byId("entryBank").value = bank;
+  updateEntryLabels();
+  renderMatrix();
+  byId("entryQuote").focus();
+}
+function updateEntryLabels(){
+  byId("activePairLabel").textContent = pairLabel(byId("entryPair").value);
+  byId("bankResultLabel").textContent = `对比${byId("entryBank").value}牌价，优惠`;
+}
+function setEntryTimeMode(mode){
+  byId("entryMode").value = mode;
+  const historical = mode === "historical";
+  byId("entryDateTime").classList.toggle("visible",historical);
+  if(historical && !byId("entryDateTime").value) byId("entryDateTime").value = localDateTime(new Date());
+  byId("entryHelp").textContent = historical ? "历史计算只使用所选时间之前最近的市场价和银行牌价。" : "点击上方任意银行报价，可自动带入货币对和银行。";
+}
+
+async function fetchQuotes(){
+  try{
+    const response = await fetch("/api/quotes",{cache:"no-store"});
+    if(!response.ok) throw new Error("报价接口异常");
+    quoteData = await response.json();
+    byId("updateTime").textContent = `最后更新 ${quoteData.timestamp || "--"}`;
+    renderMatrix();
+  }catch(error){
+    byId("quoteMatrix").innerHTML = `<div class="loading entry-error">暂时无法读取报价，请稍后重试</div>`;
   }
 }
 
-function renderQuoteSkeleton() {
-  const cards = BANK_NAMES.map(() =>
-    '<div class="bank-quote skeleton-quote" aria-hidden="true">'
-    + '<span class="skeleton-line"></span><span class="skeleton-line"></span></div>'
-  ).join('');
-  document.getElementById('quotesContainer').innerHTML =
-    '<div role="status" aria-live="polite" aria-label="正在加载外汇报价">'
-    + '<div class="bank-quote-board skeleton-board">' + cards + '</div></div>';
+function signedBp(value){
+  const number = Number(value);
+  if(!Number.isFinite(number)) return "--";
+  return `${number > 0 ? "+" : ""}${number.toFixed(1)}`;
 }
-
-function showInlineError(containerId, message) {
-  const container = document.getElementById(containerId);
-  const error = document.createElement('div');
-  error.className = 'inline-state inline-error';
-  error.setAttribute('role', 'status');
-  error.setAttribute('aria-live', 'polite');
-  error.textContent = message;
-  container.replaceChildren(error);
+function setResult(element,value){
+  const number = Number(value);
+  element.classList.toggle("negative",number < 0);
+  element.innerHTML = `${signedBp(value)}<span class="result-unit">bp</span>`;
 }
-
-function parsePositivePrice(value) {
-  if (typeof value !== 'number' && typeof value !== 'string') return null;
-  if (typeof value === 'string' && value.trim() === '') return null;
-  const price = Number(value);
-  return Number.isFinite(price) && price > 0 ? price : null;
+function resultTime(value){return value === "当前实时" ? "" : timeLabel(value)}
+function renderEntryResult(data){
+  const bank = byId("entryBank").value;
+  const marketTime = resultTime(data.market_compare_time);
+  const bankTime = resultTime(data.bank_compare_time);
+  byId("marketResultLabel").textContent = marketTime ? `对比当时市场成本（${marketTime}），你赚` : "对比市场成本，你赚";
+  byId("bankResultLabel").textContent = bankTime ? `对比当时${bank}牌价（${bankTime}），优惠` : `对比${bank}牌价，优惠`;
+  setResult(byId("marketResult"),data.bp_vs_market);
+  setResult(byId("bankResult"),data.bp_vs_bank_price);
+  if(marketTime || bankTime) byId("entryHelp").textContent = `实际采用：CFETS ${marketTime || "无数据"}，${bank} ${bankTime || "无数据"}`;
 }
-
-function formatQuoteTime(value) {
-  if (typeof value !== 'string') return null;
-  const match = value.match(
-    /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]) ([01]\d|2[0-3]):([0-5]\d):[0-5]\d$/
-  );
-  return match ? match[1] + ':' + match[2] : null;
-}
-
-function renderQuotes(cfets, banks, timestamp) {
-  latestQuotes = {cfets, banks, timestamp};
-  const pair = activePair;
-  const market = cfets[pair] || {};
-  const marketMid = parsePositivePrice(market.mid);
-  const hasMarketMid = marketMid !== null;
-  document.getElementById('marketReferenceValue').textContent = hasMarketMid
-    ? marketMid.toFixed(4) : '--';
-  document.getElementById('marketReferenceState').textContent = hasMarketMid
-    ? '市场中间价' : '暂无新数据';
-  document.getElementById('updateTime').textContent = '最后更新 ' + (timestamp || '--');
-
-  const cards = BANK_NAMES.map(bank => {
-    const quote = (banks[bank] && banks[bank][pair]) || {};
-    const bidValue = parsePositivePrice(quote.bid);
-    const askValue = parsePositivePrice(quote.ask);
-    const hasBid = bidValue !== null;
-    const hasAsk = askValue !== null;
-    const bid = hasBid ? bidValue.toFixed(4) : '--';
-    const ask = hasAsk ? askValue.toFixed(4) : '--';
-    const sourceTime = formatQuoteTime(quote.source_time);
-    const fetchTime = formatQuoteTime(quote.fetch_time);
-    let meta = '等待数据';
-    if (sourceTime) {
-      meta = '源 ' + sourceTime;
-    } else if (fetchTime) {
-      meta = (quote.fetch_time === timestamp ? '本轮抓取 ' : '上次抓取 ')
-        + fetchTime;
-    } else if (hasBid || hasAsk) {
-      meta = '真实报价';
-    }
-    const statusClass = hasBid && hasAsk ? 'ok' : (hasBid || hasAsk ? 'partial' : 'missing');
-    const status = hasBid && hasAsk ? '正常' : (hasBid || hasAsk ? '部分缺失' : '暂无新数据');
-    return '<article class="bank-quote" role="listitem" data-source="' + bank + '" aria-label="'
-      + bank + ' ' + pair + ' 买入 ' + bid + '，卖出 ' + ask + '">'
-      + '<div class="bank-quote-head"><span>' + bank + '</span><small>' + meta + '</small></div>'
-      + '<div class="bank-price-line"><span class="buy">' + bid + '</span><span class="sell">' + ask + '</span></div>'
-      + '<div class="bank-price-labels"><span>买入</span><span>卖出</span></div>'
-      + '<div class="quote-status ' + statusClass + '">' + status + '</div></article>';
-  }).join('');
-  document.getElementById('quotesContainer').innerHTML =
-    '<div class="bank-quote-board" role="list" aria-label="' + pair + ' 银行报价">'
-    + cards + '</div>';
-}
-
-// ── 获取报价 ──
-async function fetchQuotes() {
-  try {
-    const res = await fetch('/api/quotes');
-    if (!res.ok) throw new Error('quotes request failed: ' + res.status);
-    const data = await res.json();
-    renderQuotes(data.cfets || {}, data.banks || {}, data.timestamp);
-  } catch(e) {
-    console.error('fetchQuotes error:', e);
-    latestQuotes = null;
-    showInlineError('quotesContainer', '报价暂时无法获取，系统将在下一轮自动重试');
+async function submitEntry(event){
+  event.preventDefault();
+  const quote = byId("entryQuote").value;
+  if(!quote) return;
+  const params = new URLSearchParams({pair:byId("entryPair").value,bank:byId("entryBank").value,direction:byId("entryDirection").value,quote});
+  if(byId("entryMode").value === "historical"){
+    if(!byId("entryDateTime").value){byId("entryHelp").textContent = "请先选择历史日期和时间。";return}
+    params.set("time",byId("entryDateTime").value);
   }
+  byId("entrySubmit").disabled = true;
+  try{
+    const response = await fetch(`/api/entry?${params}`,{method:"POST"});
+    const data = await response.json();
+    if(!data.ok){byId("entryHelp").textContent = data.error || "计算失败";byId("entryHelp").classList.add("entry-error");return}
+    byId("entryHelp").classList.remove("entry-error");
+    renderEntryResult(data);
+    await loadEntries();
+  }catch(error){byId("entryHelp").textContent = "提交失败，请检查本地服务。";byId("entryHelp").classList.add("entry-error")}
+  finally{byId("entrySubmit").disabled = false}
+}
+async function loadEntries(){
+  try{
+    const data = await fetch("/api/entries?limit=6",{cache:"no-store"}).then(response => response.json());
+    const items = (data.entries || []).slice().reverse();
+    byId("recentEntries").innerHTML = `<span class="recent-title">最近录入</span>` + (items.length ? items.map(item => `<span class="recent-item"><strong>${safe(pairLabel(item.pair))}　${safe(item.bank)}</strong><span>${safe(item.quote)}　${signedBp(item.bp_vs_market)}bp</span></span>`).join("") : "<span>暂无记录</span>");
+  }catch(error){}
 }
 
-// ── 图表 ──
-const LINE_STYLE = [
-  {name:'银行卖价', color:'#ff857a', width:1.5},
-  {name:'银行成本', color:'#d8a84e', width:1.5, type:'dashed'},
-  {name:'市场成本', color:'#98a6ae', width:1.5},
-  {name:'银行买价', color:'#56d8b3', width:1.5},
-];
-
-async function loadChart() {
-  const requestId = ++chartRequestId;
-  const pair = document.getElementById('chartPair').value;
-  const bank = document.getElementById('chartBank').value;
-  const dateInput = document.getElementById('chartDate').value;
-  let url = '/api/chart?pair=' + pair + '&bank=' + encodeURIComponent(bank);
-  if (dateInput) {
-    url += '&date=' + dateInput;
-  }
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('chart request failed: ' + res.status);
-    const data = await res.json();
-    if (requestId !== chartRequestId || pair !== document.getElementById('chartPair').value) return;
-    renderChart(data);
-  } catch(e) {
-    if (requestId !== chartRequestId) return;
-    console.error('loadChart error:', e);
-    if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
-    showInlineError('chart', '图表暂时无法获取，请稍后重试');
-  }
+function selectedHistoryBanks(){return [...byId("historySources").querySelectorAll('input:not(:disabled):checked')].map(input => input.value)}
+function historyQuery(){
+  const params = new URLSearchParams({pair:byId("historyPair").value,price:byId("historyPriceType").value,banks:selectedHistoryBanks().join(",")});
+  if(activeHistoryHours === "custom"){params.set("start",byId("historyStart").value);params.set("end",byId("historyEnd").value)}else params.set("hours",activeHistoryHours);
+  return params;
+}
+async function loadHistory(){
+  byId("chartEmpty").textContent = "正在读取历史数据";
+  byId("chartEmpty").classList.remove("hidden");
+  try{
+    const data = await fetch(`/api/history?${historyQuery()}`,{cache:"no-store"}).then(response => response.json());
+    if(!data.ok) throw new Error(data.error || "历史数据读取失败");
+    renderHistory(data);
+  }catch(error){byId("chartEmpty").textContent = error.message || "历史数据读取失败"}
+}
+function renderHistory(data){
+  if(!historyChart) historyChart = echarts.init(byId("historyChart"));
+  const series = [{name:"CFETS",type:"line",showSymbol:true,symbolSize:4,data:data.market || [],lineStyle:{width:2,color:"#e7bd66"},itemStyle:{color:"#e7bd66"}}];
+  Object.entries(data.banks || {}).forEach(([bank,points],index) => series.push({name:bank,type:"line",showSymbol:true,symbolSize:4,data:points,lineStyle:{width:1.5,color:COLORS[index]},itemStyle:{color:COLORS[index]}}));
+  const hasData = series.some(item => item.data.length);
+  byId("chartEmpty").classList.toggle("hidden",hasData);
+  if(!hasData) byId("chartEmpty").textContent = "这个时间范围内暂无历史数据";
+  historyChart.off("click");
+  historyChart.setOption({animation:false,backgroundColor:"transparent",color:["#e7bd66",...COLORS],legend:{top:11,textStyle:{color:"#82949b",fontSize:9}},grid:{left:62,right:24,top:48,bottom:42},tooltip:{trigger:"axis",backgroundColor:"#101e28",borderColor:"#20313b",textStyle:{color:"#e3ecee",fontSize:10}},xAxis:{type:"time",axisLine:{lineStyle:{color:"#20313b"}},axisLabel:{color:"#60757e",fontSize:8},splitLine:{show:false}},yAxis:{type:"value",scale:true,axisLabel:{color:"#60757e",fontSize:8},splitLine:{lineStyle:{color:"#172730"}}},series},true);
+  historyChart.on("click",handleChartPoint);
+}
+function handleChartPoint(params){
+  const value = Array.isArray(params.value) ? params.value[0] : params.value;
+  if(!value) return;
+  byId("entryPair").value = byId("historyPair").value;
+  if(params.seriesName !== "CFETS" && BANKS.includes(params.seriesName)) byId("entryBank").value = params.seriesName;
+  byId("entryDateTime").value = localDateTime(value);
+  setEntryTimeMode('historical');
+  updateEntryLabels();
+  byId("entryQuote").focus();
 }
 
-function renderChart(data) {
-  const dom = document.getElementById('chart');
-  if (!data.times || data.times.length === 0) {
-    dom.innerHTML = '<div class="loading">暂无今日数据</div>';
-    if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
-    return;
-  }
-
-  if (chartInstance) chartInstance.dispose();
-  dom.replaceChildren();
-  chartInstance = echarts.init(dom);
-
-  const sources = data.sources || [];
-
-  const series = [
-    {name:'银行卖价', data:data.asks, color:'#ff857a'},
-    {name:'银行成本', data:data.costs, color:'#d8a84e'},
-    {name:'市场成本', data:data.mids, color:'#98a6ae'},
-    {name:'银行买价', data:data.bids, color:'#56d8b3'},
-  ].map((seriesItem, i) => ({
-    name: seriesItem.name,
-    type: 'line',
-    data: seriesItem.data,
-    connectNulls: true,
-    smooth: false,
-    symbol: 'circle',
-    symbolSize: 2,
-    lineStyle: { color: seriesItem.color, width: LINE_STYLE[i].width, type: LINE_STYLE[i].type || 'solid' },
-    itemStyle: { color: seriesItem.color },
-  }));
-
-  chartInstance.setOption({
-    backgroundColor: '#0e1620',
-    grid: { left: 54, right: 18, top: 38, bottom: 32 },
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(14,22,32,.96)',
-      borderColor: '#2a3b47',
-      textStyle: { color: '#dce5e8', fontSize: 12 },
-      formatter: function(params) {
-        const time = params[0].axisValue;
-        let html = '<div>' + time + '</div>';
-        const colors = ['#ff857a','#d8a84e','#98a6ae','#56d8b3'];
-        const names = ['银行卖价','银行成本','市场成本','银行买价'];
-        for (let i = 0; i < params.length; i++) {
-          if (params[i].value != null) {
-            let label = names[i];
-            if (i === 2 && sources.length > 0) {
-              const idx = data.times.indexOf(time);
-              const src = idx >= 0 && idx < sources.length ? sources[idx] : '';
-              if (src === '精确') label += ' <span style="color:#56d8b3">●</span>';
-              else if (src === '推导') label += ' <span style="color:#d8a84e">○</span>';
-            }
-            html += '<div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + colors[i] + ';margin-right:6px;"></span>'
-              + label + ' ' + params[i].value.toFixed(4) + '</div>';
-          }
-        }
-        return html;
-      }
-    },
-    legend: {
-      data: ['银行卖价','银行成本','市场成本','银行买价'],
-      textStyle: { color: '#91a1a8', fontSize: 10 },
-      top: 8,
-    },
-    xAxis: {
-      type: 'category',
-      data: data.times,
-      axisLine: { lineStyle: { color: '#2c3b46' } },
-      axisLabel: { color: '#7f9098', fontSize: 10 },
-      splitLine: { show: true, lineStyle: { color: '#192833', width: 0.5 } },
-    },
-    yAxis: {
-      type: 'value',
-      scale: true,
-      axisLine: { lineStyle: { color: '#2c3b46' } },
-      axisLabel: { color: '#7f9098', fontSize: 10, formatter: function(v) { return v.toFixed(4); } },
-      splitLine: { show: true, lineStyle: { color: '#192833', width: 0.5 } },
-    },
-    series: series,
-    dataZoom: [
-      { type: 'inside', start: 0, end: 100 },
-    ],
-  });
-
-  chartInstance.on('click', function() {});
+function switchView(name){
+  const history = name === "history";
+  byId("liveView").classList.toggle("active",!history);byId("historyView").classList.toggle("active",history);
+  byId("viewLive").classList.toggle("active",!history);byId("viewHistory").classList.toggle("active",history);
+  if(history){loadHistory();setTimeout(() => historyChart?.resize(),50)}
+}
+function bindEvents(){
+  byId("viewLive").addEventListener("click",() => switchView("live"));byId("viewHistory").addEventListener("click",() => switchView("history"));
+  byId("entryPair").addEventListener("change",updateEntryLabels);byId("entryBank").addEventListener("change",updateEntryLabels);byId("entryMode").addEventListener("change",event => setEntryTimeMode(event.target.value));byId("entryForm").addEventListener("submit",submitEntry);
+  byId("historyPair").addEventListener("change",loadHistory);byId("historyPriceType").addEventListener("change",loadHistory);
+  byId("historySources").addEventListener("change",event => {const checked = selectedHistoryBanks();if(checked.length > 3){event.target.checked=false;return}loadHistory()});
+  document.querySelectorAll(".range-button").forEach(button => button.addEventListener("click",() => {activeHistoryHours=button.dataset.hours;document.querySelectorAll(".range-button").forEach(item => item.classList.toggle("active",item===button));byId("customRange").classList.toggle("visible",activeHistoryHours==="custom");if(activeHistoryHours!=="custom") loadHistory()}));
+  byId("historyStart").addEventListener("change",loadHistory);byId("historyEnd").addEventListener("change",loadHistory);window.addEventListener("resize",() => historyChart?.resize());
 }
 
-// ── 录入报价 ──
-let entryTimeMode = 'current';
-let entrySubmissionPending = false;
-let entrySubmissionId = 0;
-
-function invalidateEntrySubmission() {
-  entrySubmissionId += 1;
-}
-
-function setEntryTimeMode(mode) {
-  const nextMode = mode === 'historical' ? 'historical' : 'current';
-  if (nextMode !== entryTimeMode) invalidateEntrySubmission();
-  entryTimeMode = nextMode;
-  const historical = entryTimeMode === 'historical';
-  document.getElementById('historicalTimeFields').hidden = !historical;
-  document.getElementById('entryTimeCurrent').setAttribute('aria-pressed', String(!historical));
-  document.getElementById('entryTimeHistorical').setAttribute('aria-pressed', String(historical));
-  document.getElementById('entryContext').textContent = historical
-    ? '将使用所选历史时点对应的市场价与银行牌价计算'
-    : '使用当前实时市场价与银行牌价计算';
-}
-
-document.getElementById('entryTimeCurrent').addEventListener('click', () => setEntryTimeMode('current'));
-document.getElementById('entryTimeHistorical').addEventListener('click', () => setEntryTimeMode('historical'));
-['entryBank', 'entryDir', 'entryQuote', 'entryDate', 'entryTime'].forEach(id => {
-  document.getElementById(id).addEventListener('change', invalidateEntrySubmission);
-});
-['entryQuote', 'entryDate', 'entryTime'].forEach(id => {
-  document.getElementById(id).addEventListener('input', invalidateEntrySubmission);
-});
-
-function describeSignedResult(value, positiveLabel, negativeLabel) {
-  if (typeof value !== 'number' && typeof value !== 'string') return null;
-  if (typeof value === 'string' && value.trim() === '') return null;
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return null;
-  if (numeric > 0) return {label: positiveLabel, value: Math.abs(numeric), tone: 'positive'};
-  if (numeric < 0) return {label: negativeLabel, value: Math.abs(numeric), tone: 'negative'};
-  return {label: '持平', value: 0, tone: 'neutral'};
-}
-
-function renderEntryResult(data, bank) {
-  const market = describeSignedResult(data.bp_vs_market, '你赚', '你亏');
-  const board = describeSignedResult(data.bp_vs_bank_price, '优惠', '更差');
-  const bankReference = bank + '牌价';
-  const root = document.getElementById('entryResult');
-  if (!market || !board) {
-    root.textContent = '结果数据不完整，请稍后重试';
-    return;
-  }
-  const makeRow = (prefix, result) => {
-    const row = document.createElement('div');
-    const label = document.createElement('div');
-    const value = document.createElement('div');
-    row.className = 'result-row ' + result.tone;
-    label.className = 'result-label';
-    value.className = 'result-value';
-    label.textContent = prefix + result.label + '：';
-    value.textContent = result.value.toFixed(1) + ' bp';
-    row.append(label, value);
-    return row;
-  };
-  root.replaceChildren(
-    makeRow('对比市场成本，', market),
-    makeRow('对比' + bankReference + '，', board),
-  );
-}
-
-async function submitEntry() {
-  if (entrySubmissionPending) return;
-  const snapshot = {
-    pair: activePair,
-    bank: document.getElementById('entryBank').value,
-    dir: document.getElementById('entryDir').value,
-    quote: parseFloat(document.getElementById('entryQuote').value),
-    timeMode: entryTimeMode,
-    date: document.getElementById('entryDate').value,
-    time: document.getElementById('entryTime').value,
-  };
-  if (snapshot.timeMode === 'historical' && (!snapshot.date || !snapshot.time)) {
-    document.getElementById('entryResult').textContent = '请选择完整的历史日期和时间';
-    return;
-  }
-  if (isNaN(snapshot.quote)) { document.getElementById('entryResult').textContent = '请输入有效的报价数字'; return; }
-
-  const submissionId = ++entrySubmissionId;
-  const submitButton = document.getElementById('entrySubmit');
-  entrySubmissionPending = true;
-  submitButton.disabled = true;
-  try {
-    let url = '/api/entry?pair=' + snapshot.pair + '&bank=' + encodeURIComponent(snapshot.bank) + '&direction=' + encodeURIComponent(snapshot.dir) + '&quote=' + snapshot.quote;
-    if (snapshot.timeMode === 'historical') {
-      url += '&time=' + encodeURIComponent(snapshot.date + 'T' + snapshot.time);
-    }
-    const res = await fetch(url, { method: 'POST' });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) {
-      if (submissionId === entrySubmissionId) {
-        document.getElementById('entryResult').textContent = data.error || '提交失败，请稍后重试';
-      }
-      return;
-    }
-    if (submissionId === entrySubmissionId) renderEntryResult(data, snapshot.bank);
-    loadEntries();
-  } catch(e) {
-    console.error('submitEntry error:', e);
-    if (submissionId === entrySubmissionId) {
-      document.getElementById('entryResult').textContent = '提交失败，请稍后重试';
-    }
-  } finally {
-    entrySubmissionPending = false;
-    submitButton.disabled = false;
-  }
-}
-
-async function loadEntries() {
-  try {
-    const res = await fetch('/api/entries?limit=10');
-    if (!res.ok) throw new Error('entries request failed: ' + res.status);
-    const data = await res.json();
-    const el = document.getElementById('entryRecent');
-    if (!data.entries || data.entries.length === 0) {
-      el.textContent = '暂无录入记录';
-      return;
-    }
-    const fragment = document.createDocumentFragment();
-    data.entries.forEach(entry => {
-      const item = document.createElement('article');
-      const main = document.createElement('div');
-      const meta = document.createElement('div');
-      const quote = Number(entry.quote);
-      main.className = 'recent-entry-main';
-      meta.className = 'recent-entry-meta';
-      item.className = 'recent-entry';
-      main.textContent = entry.pair + ' · ' + entry.bank;
-      meta.textContent = entry.time + ' · ' + entry.direction + ' '
-        + (Number.isFinite(quote) ? quote.toFixed(4) : '--')
-        + ' · 银行赚 ' + entry.bp_vs_market + 'bp';
-      item.append(main, meta);
-      fragment.append(item);
-    });
-    el.replaceChildren(fragment);
-  } catch(e) {
-    console.error('loadEntries error:', e);
-    showInlineError('entryRecent', '最近录入暂时无法获取，请稍后重试');
-  }
-}
-
-// ── 日期选择器初始化为今天 ──
-(function initDatePicker() {
-  const today = new Date();
-  const y = today.getFullYear();
-  const m = String(today.getMonth() + 1).padStart(2, '0');
-  const d = String(today.getDate()).padStart(2, '0');
-  document.getElementById('chartDate').value = y + '-' + m + '-' + d;
-})();
-
-// ── 自动刷新 ──
-renderPairTabs();
-renderQuoteSkeleton();
-fetchQuotes();
-loadChart();
-loadEntries();
-setInterval(fetchQuotes, 15000);   // 报价每 15 秒刷新
-setInterval(loadChart, 60000);     // 图表每分钟刷新（保持当天数据更新）
+populateControls();bindEvents();updateEntryLabels();fetchQuotes();loadEntries();
+setInterval(fetchQuotes,15000);
 </script>
 </body>
 </html>
