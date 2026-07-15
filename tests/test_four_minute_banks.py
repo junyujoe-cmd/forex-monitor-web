@@ -2464,7 +2464,7 @@ class AllPairsWorkbenchFrontendTests(unittest.TestCase):
     def test_history_controls_and_chart_click_to_entry_are_wired(self):
         for marker in [
             'id="historyPair"',
-            'data-hours="24"', 'data-hours="168"', 'data-hours="720"',
+            'data-hours="today">当天数据', 'data-hours="168"', 'data-hours="720"',
             'id="historySources"', 'id="historyChart"',
             "function handleChartPoint", "setEntryTimeMode('historical')",
             "market_compare_time", "bank_compare_time",
@@ -2491,18 +2491,37 @@ class AllPairsWorkbenchFrontendTests(unittest.TestCase):
         ]:
             self.assertIn(marker, self.html)
 
-    def test_history_defaults_to_boc_and_anchors_24_hours_at_0930(self):
+    def test_history_defaults_to_boc_and_uses_0930_to_0259_sessions(self):
         for marker in [
             'const defaultBanks = new Set(["中国银行"]);',
-            "function previousTradingDayRange",
-            "start.setDate(start.getDate()-1)",
-            "start.setHours(9,30,0,0)",
-            'activeHistoryHours === "24"',
+            "function tradingSessionRange",
+            "sessionStart.setHours(9,30,0,0)",
+            "sessionEnd.setHours(2,59,0,0)",
+            'activeHistoryHours === "168" ? 7',
+            'activeHistoryHours === "720" ? 30 : 1',
             'params.set("start",range.start)',
             'params.set("end",range.end)',
         ]:
             self.assertIn(marker, self.html)
-        self.assertNotIn('new Set(["中国银行","杭州银行"])', self.html)
+        self.assertNotIn("function previousTradingDayRange", self.html)
+
+    def test_history_axis_labels_half_hours_and_daily_0930_starts(self):
+        for marker in [
+            'const dailyAxis = activeHistoryHours !== "today";',
+            "const axisTimes = [data.start];",
+            "const axisStep = 30*60*1000;",
+            'axisTimes.push(`${localDateTime(axisCursor)}:00`)',
+            "const axisData = [...new Set(axisTimes)].sort();",
+            "const showAxisLabel = (index,value) =>",
+            "date.getHours() === 9 && date.getMinutes() === 30",
+            "date.getMinutes() % 30 === 0",
+            'xAxis:[{type:"time",min:data.start,max:data.end',
+            '{type:"category",data:axisData,boundaryGap:false',
+            "interval:showAxisLabel,formatter:axisLabel",
+            "dailyAxis ? `${date.getMonth()+1}.${pad(date.getDate())}`",
+            "`${pad(date.getHours())}:${pad(date.getMinutes())}`",
+        ]:
+            self.assertIn(marker, self.html)
 
     @unittest.skipUnless(NODE_BINARY, "Node.js is required for JavaScript syntax validation")
     def test_inline_javascript_is_syntactically_valid(self):

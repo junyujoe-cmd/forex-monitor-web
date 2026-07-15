@@ -59,7 +59,7 @@ button{cursor:pointer}
     <div class="history-shell">
       <div class="history-toolbar">
         <div class="field"><label for="historyPair">货币对</label><select class="control" id="historyPair"></select></div>
-        <div><span class="source-label">时间范围</span><div class="range-buttons"><button class="range-button active" data-hours="24">24小时</button><button class="range-button" data-hours="168">7天</button><button class="range-button" data-hours="720">30天</button><button class="range-button" data-hours="custom">自定义</button></div></div>
+        <div><span class="source-label">时间范围</span><div class="range-buttons"><button class="range-button active" data-hours="today">当天数据</button><button class="range-button" data-hours="168">7天</button><button class="range-button" data-hours="720">30天</button><button class="range-button" data-hours="custom">自定义</button></div></div>
         <div><span class="source-label">对比银行（最多选择两家，同时显示买入价和卖出价）</span><div class="source-options" id="historySources"></div></div>
         <div class="custom-range" id="customRange"><div class="field"><label for="historyStart">开始时间</label><input class="control" id="historyStart" type="datetime-local"></div><div class="field"><label for="historyEnd">结束时间</label><input class="control" id="historyEnd" type="datetime-local"></div></div>
       </div>
@@ -95,7 +95,7 @@ const PAIR_NAMES = {USDCNY:"美元兑人民币",EURCNY:"欧元兑人民币",HKDC
 const HISTORY_COLORS = {market:"#e7bd66",firstBid:"#57d9b5",firstAsk:"#ff8178",secondBid:"#b7e35f",secondAsk:"#f59ac3"};
 let quoteData = {cfets:{},banks:{},timestamp:""};
 let selectedCell = null;
-let activeHistoryHours = "24";
+let activeHistoryHours = "today";
 let historyChart = null;
 
 const byId = id => document.getElementById(id);
@@ -112,11 +112,17 @@ function localDateTime(value){
   const pad = number => String(number).padStart(2,"0");
   return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
-function previousTradingDayRange(now=new Date()){
-  const start = new Date(now);
-  start.setDate(start.getDate()-1);
-  start.setHours(9,30,0,0);
-  return {start:localDateTime(start),end:localDateTime(now)};
+function tradingSessionRange(days=1,now=new Date()){
+  const sessionStart = new Date(now);
+  const beforeOpen = now.getHours() < 9 || (now.getHours() === 9 && now.getMinutes() < 30);
+  if(beforeOpen) sessionStart.setDate(sessionStart.getDate()-1);
+  sessionStart.setHours(9,30,0,0);
+  const sessionEnd = new Date(sessionStart);
+  sessionEnd.setDate(sessionEnd.getDate()+1);
+  sessionEnd.setHours(2,59,0,0);
+  const end = now < sessionEnd ? now : sessionEnd;
+  sessionStart.setDate(sessionStart.getDate()-(days-1));
+  return {start:localDateTime(sessionStart),end:localDateTime(end)};
 }
 function quoteTime(quote){return timeLabel(quote?.source_time || quote?.timestamp || quote?.fetch_time || quoteData.timestamp)}
 
@@ -235,8 +241,7 @@ function selectedHistoryBanks(){return [...byId("historySources").querySelectorA
 function historyQuery(){
   const params = new URLSearchParams({pair:byId("historyPair").value,banks:selectedHistoryBanks().join(",")});
   if(activeHistoryHours === "custom"){params.set("start",byId("historyStart").value);params.set("end",byId("historyEnd").value)}
-  else if(activeHistoryHours === "24"){const range=previousTradingDayRange();params.set("start",range.start);params.set("end",range.end)}
-  else params.set("hours",activeHistoryHours);
+  else {const days=activeHistoryHours === "168" ? 7 : activeHistoryHours === "720" ? 30 : 1;const range=tradingSessionRange(days);params.set("start",range.start);params.set("end",range.end)}
   return params;
 }
 async function loadHistory(){
@@ -257,6 +262,10 @@ function normalizeHistoryPoints(points){
 }
 function renderHistory(data){
   if(!historyChart) historyChart = echarts.init(byId("historyChart"));
+  const dailyAxis = activeHistoryHours !== "today";
+  const axisStep = 30*60*1000;
+  const axisLabel = value => {const date=new Date(value);const pad=number=>String(number).padStart(2,"0");return dailyAxis ? `${date.getMonth()+1}.${pad(date.getDate())}` : `${pad(date.getHours())}:${pad(date.getMinutes())}`};
+  const showAxisLabel = (index,value) => {const date=new Date(value);return dailyAxis ? date.getHours() === 9 && date.getMinutes() === 30 : date.getMinutes() % 30 === 0};
   const series = [{name:"CFETS 中间价",type:"line",showSymbol:false,symbolSize:1,data:normalizeHistoryPoints(data.market),lineStyle:{width:0.8,color:HISTORY_COLORS.market},itemStyle:{color:HISTORY_COLORS.market},emphasis:{scale:3,lineStyle:{width:0.8}}}];
   Object.entries(data.banks || {}).forEach(([bank,bankData],index) => {
     const bidColor = index === 0 ? HISTORY_COLORS.firstBid : HISTORY_COLORS.secondBid;
@@ -266,11 +275,20 @@ function renderHistory(data){
       {name:`${bank} 卖出价`,type:"line",showSymbol:false,symbolSize:1,data:normalizeHistoryPoints(bankData.ask),lineStyle:{width:0.7,color:askColor},itemStyle:{color:askColor},emphasis:{scale:3,lineStyle:{width:0.7}}},
     );
   });
+  const axisTimes = [data.start];
+  const rangeStart = new Date(data.start);
+  const rangeEnd = new Date(data.end);
+  const axisCursor = new Date(rangeStart);
+  axisCursor.setSeconds(0,0);
+  if(axisCursor.getMinutes() !== 0 && axisCursor.getMinutes() !== 30){axisCursor.setMinutes(axisCursor.getMinutes() < 30 ? 30 : 60)}
+  while(axisCursor <= rangeEnd){axisTimes.push(`${localDateTime(axisCursor)}:00`);axisCursor.setTime(axisCursor.getTime()+axisStep)}
+  axisTimes.push(data.end);
+  const axisData = [...new Set(axisTimes)].sort();
   const hasData = series.some(item => item.data.length);
   byId("chartEmpty").classList.toggle("hidden",hasData);
   if(!hasData) byId("chartEmpty").textContent = "这个时间范围内暂无历史数据";
   historyChart.off("click");
-  historyChart.setOption({animation:false,backgroundColor:"transparent",legend:{top:11,textStyle:{color:"#82949b",fontSize:9}},grid:{left:62,right:24,top:48,bottom:42},tooltip:{trigger:"axis",axisPointer:{type:"line",snap:true},backgroundColor:"#101e28",borderColor:"#20313b",textStyle:{color:"#e3ecee",fontSize:10}},xAxis:{type:"time",axisLine:{lineStyle:{color:"#20313b"}},axisLabel:{color:"#60757e",fontSize:8},splitLine:{show:false}},yAxis:{type:"value",scale:true,axisLabel:{color:"#60757e",fontSize:8},splitLine:{lineStyle:{color:"#172730"}}},series},true);
+  historyChart.setOption({animation:false,backgroundColor:"transparent",legend:{top:11,textStyle:{color:"#82949b",fontSize:9}},grid:{left:62,right:24,top:48,bottom:42},tooltip:{trigger:"axis",axisPointer:{type:"line",snap:true},backgroundColor:"#101e28",borderColor:"#20313b",textStyle:{color:"#e3ecee",fontSize:10}},xAxis:[{type:"time",min:data.start,max:data.end,boundaryGap:false,axisLine:{show:false},axisTick:{show:false},axisLabel:{show:false},splitLine:{show:false}},{type:"category",data:axisData,boundaryGap:false,axisPointer:{show:false},axisLine:{lineStyle:{color:"#20313b"}},axisLabel:{color:"#60757e",fontSize:8,hideOverlap:false,interval:showAxisLabel,formatter:axisLabel},splitLine:{show:false}}],yAxis:{type:"value",scale:true,axisLabel:{color:"#60757e",fontSize:8},splitLine:{lineStyle:{color:"#172730"}}},series},true);
   historyChart.on("click",handleChartPoint);
 }
 function handleChartPoint(params){
