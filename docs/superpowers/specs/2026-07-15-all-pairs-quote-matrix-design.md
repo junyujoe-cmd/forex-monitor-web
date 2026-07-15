@@ -91,9 +91,17 @@ English: The top navigation contains “Live Overview” and “Historical Chart
 
 English: Users no longer choose between bid and ask. CFETS always shows one market-mid curve, while every selected bank shows both bid and ask. Selecting one bank produces three lines; selecting two banks produces five lines.
 
-中文：CFETS 中间价使用金色。第一家银行的买入价使用绿色、卖出价使用红色；第二家银行使用有明显区分但仍属于同一语义的浅绿色和浅红色。图例必须同时写明银行名称和价格类型，例如“中国银行 买入价”。
+中文：CFETS 中间价使用金色。第一家银行的买入价使用翠绿色、卖出价使用红色；第二家银行使用差异明显的黄绿色和玫红色。图例必须同时写明银行名称和价格类型，例如“中国银行 买入价”。
 
-English: The CFETS mid-price is gold. The first bank uses green for bid and red for ask; the second bank uses clearly differentiated lighter green and lighter red while preserving the same bid/ask meaning. Every legend item includes both the bank name and price type, such as “Bank of China Bid”.
+English: The CFETS mid-price is gold. The first bank uses emerald green for bid and red for ask; the second bank uses clearly differentiated yellow-green and rose-red. Every legend item includes both the bank name and price type, such as “Bank of China Bid”.
+
+中文：图表将各来源时间统一到分钟后再绘制，使相差少量毫秒的 CFETS 与银行数据落在同一横坐标。鼠标提示框必须始终包含该分钟的 CFETS 中间价，以及已选银行的买入价和卖出价。此显示对齐不修改数据库原始时间。
+
+English: Before charting, source timestamps are normalized to the minute so CFETS and bank records separated by only milliseconds share the same x-axis value. The tooltip must include the CFETS mid-price and bid/ask values for every selected bank at that minute. This display alignment does not modify stored timestamps.
+
+中文：CFETS 曲线宽度为 1.2px，银行曲线宽度为 1px，数据点直径为 2px。悬停时只突出当前数据点，不加粗整条曲线。
+
+English: The CFETS line is 1.2px wide, bank lines are 1px wide, and data points are 2px in diameter. Hover emphasis highlights only the active point without thickening the entire curve.
 
 ## 7. 响应与状态 / Interaction and States
 
@@ -113,6 +121,8 @@ English: Price refreshes preserve the current view, filters, and entry values. P
 - English: Historical calculations clearly show selected and actual data timestamps and never use future data.
 - 中文：历史图表固定显示 CFETS 中间价，并同时显示最多两家银行各自的买入价和卖出价，不提供买入或卖出的单选控件。
 - English: The historical chart always shows the CFETS mid-price together with both bid and ask prices for up to two selected banks, without a bid-or-ask selector.
+- 中文：历史图表提示框包含 CFETS 中间价，第二家银行与第一家银行颜色可清晰区分，线宽和点大小符合已确认的精细参数。
+- English: The historical tooltip includes the CFETS mid-price, the second bank is visually distinct from the first, and line and point sizes match the approved precision values.
 - 中文：现有历史数据库继续沿用，不删除、不重建历史数据。
 - English: The existing historical database is preserved without deletion or rebuilding.
 
