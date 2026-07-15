@@ -2460,6 +2460,7 @@ class AllPairsWorkbenchFrontendTests(unittest.TestCase):
             "--timestamp:#60757e",
             ".pair-code{font:80017px",
             ".quote-value{font:80014px",
+            ".market-cell.quote-line.quote-value{color:var(--market)}",
             ".quote-timestamp{color:var(--timestamp);font:6007px",
         ]:
             self.assertIn(rule, normalized)
