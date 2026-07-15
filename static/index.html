@@ -22,7 +22,7 @@ button{cursor:pointer}
 .grid-head{height:42px;padding:7px 10px;border-right:1px solid var(--soft);border-bottom:1px solid var(--line);color:var(--muted);font-size:8px;display:flex;flex-direction:column;justify-content:center}.grid-head strong{color:var(--text);font-size:9px}.grid-head span{margin-top:3px;color:var(--timestamp);font-size:7px}.grid-head.source{text-align:center;align-items:center}
 .pair-cell,.market-cell,.quote-cell{position:relative;height:92px;border-right:1px solid var(--soft);border-bottom:1px solid var(--line)}
 .pair-cell{padding:19px 12px}.pair-code{font:800 17px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.04em}.pair-name{margin-top:7px;color:var(--muted);font-size:8px}
-.market-cell{padding:23px 11px;text-align:center}.market-price{font:800 16px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--market);font-variant-numeric:tabular-nums}.market-label{margin-top:6px;color:var(--muted);font-size:7px}
+.market-cell{padding:19px 10px;text-align:left}
 .quote-cell{width:100%;padding:19px 10px;border-top:0;border-left:0;background:transparent;color:var(--text);text-align:left}.quote-cell:hover,.quote-cell.selected{background:rgba(87,217,181,.045);box-shadow:inset 0 0 0 1px rgba(87,217,181,.28)}
 .quote-line{display:grid;grid-template-columns:14px 1fr;align-items:baseline;margin-bottom:8px}.quote-side{color:var(--timestamp);font-size:7px}.quote-value{font:800 14px ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}.quote-line.bid .quote-value{color:var(--bid)}.quote-line.ask .quote-value{color:var(--ask)}
 .quote-timestamp{color:var(--timestamp);font:600 7px ui-monospace,SFMono-Regular,Menlo,monospace;position:absolute;right:7px;bottom:6px;font-variant-numeric:tabular-nums}.empty-price{color:var(--timestamp)}
@@ -136,14 +136,13 @@ function populateControls(){
 }
 
 function renderMatrix(){
-  const head = [`<div class="grid-head"><strong>货币对</strong><span>PAIR</span></div>`,`<div class="grid-head source"><strong>CFETS</strong><span>市场参考</span></div>`]
+  const head = [`<div class="grid-head"><strong>货币对</strong><span>PAIR</span></div>`,`<div class="grid-head source"><strong>CFETS</strong><span>买入 / 卖出</span></div>`]
     .concat(BANKS.map(bank => `<div class="grid-head source"><strong>${bank}</strong><span>买入 / 卖出</span></div>`));
   const rows = PAIRS.flatMap(pair => {
     const market = quoteData.cfets?.[pair] || {};
-    const marketValue = market.mid ?? ((Number(market.bid) + Number(market.ask)) / 2);
     const cells = [
       `<div class="pair-cell"><div class="pair-code">${pairLabel(pair)}</div><div class="pair-name">${PAIR_NAMES[pair]}</div></div>`,
-      `<div class="market-cell"><div class="market-price">${price(marketValue)}</div><div class="market-label">市场中间价</div><span class="quote-timestamp">${quoteTime(market)}</span></div>`
+      `<div class="market-cell"><div class="quote-line bid"><span class="quote-side">买</span><span class="quote-value">${price(market.bid)}</span></div><div class="quote-line ask"><span class="quote-side">卖</span><span class="quote-value">${price(market.ask)}</span></div><span class="quote-timestamp">${quoteTime(market)}</span></div>`
     ];
     BANKS.forEach(bank => {
       const quote = quoteData.banks?.[bank]?.[pair] || {};

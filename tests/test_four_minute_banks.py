@@ -2443,9 +2443,14 @@ class AllPairsWorkbenchFrontendTests(unittest.TestCase):
             'id="liveView"', 'id="historyView"', 'id="quoteMatrix"',
             'id="entryBar"', 'id="viewLive"', 'id="viewHistory"',
             "quote-grid", "quote-cell", "quote-timestamp",
+            '<strong>CFETS</strong><span>买入 / 卖出</span>',
+            '${price(market.bid)}</span></div>',
+            '${price(market.ask)}</span></div>',
         ]:
             self.assertIn(marker, self.html)
         self.assertIn('const PAIRS = ["USDCNY", "EURCNY", "HKDCNY", "JPYCNY"]', self.html)
+        self.assertNotIn('const marketValue = market.mid', self.html)
+        self.assertIn('name:"CFETS 中间价"', self.html)
         for bank in BANKS:
             self.assertIn(bank, self.html)
 
@@ -2454,7 +2459,6 @@ class AllPairsWorkbenchFrontendTests(unittest.TestCase):
         for rule in [
             "--timestamp:#60757e",
             ".pair-code{font:80017px",
-            ".market-price{font:80016px",
             ".quote-value{font:80014px",
             ".quote-timestamp{color:var(--timestamp);font:6007px",
         ]:
