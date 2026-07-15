@@ -2516,7 +2516,7 @@ class AllPairsWorkbenchFrontendTests(unittest.TestCase):
             "date.getHours() === 9 && date.getMinutes() === 30",
             "date.getMinutes() % 30 === 0",
             'xAxis:[{type:"time",min:data.start,max:data.end',
-            '{type:"category",data:axisData,boundaryGap:false',
+            '{type:"category",position:"bottom",offset:0,data:axisData,boundaryGap:false',
             "interval:showAxisLabel,formatter:axisLabel",
             "dailyAxis ? `${date.getMonth()+1}.${pad(date.getDate())}`",
             "`${pad(date.getHours())}:${pad(date.getMinutes())}`",
