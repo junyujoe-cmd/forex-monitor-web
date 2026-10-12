@@ -30,7 +30,7 @@ button{cursor:pointer}
 .entry-bar{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(170px,.58fr) minmax(190px,.68fr);min-height:93px;border:1px solid var(--line);background:var(--panel)}
 .entry-form{padding:10px 11px;border-right:1px solid var(--line)}.entry-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;font-size:10px}.entry-title strong{font-size:11px}.active-pair{color:var(--accent);font:700 9px ui-monospace,monospace}
 .entry-fields{display:grid;grid-template-columns:105px 135px minmax(185px,1fr) 128px 94px 88px;gap:5px}.control{height:32px;padding:0 8px;border:1px solid var(--line);border-radius:0;background:#081119;color:var(--text);font-size:9px;outline:0}.control:focus{border-color:var(--accent)}.price-input{font:700 12px ui-monospace,monospace}.submit{border:1px solid var(--accent);background:var(--accent);color:#06110e;font-size:9px;font-weight:800}.submit:hover{background:#74e5c5}.submit:disabled{opacity:.5;cursor:wait}
-.historical-control{display:none}.historical-control.visible{display:block;grid-column:4/6;grid-row:2}.entry-help{margin-top:7px;color:var(--timestamp);font-size:7px}.entry-error{color:var(--danger)}
+.target-fields{grid-template-columns:105px 135px minmax(185px,1fr) 150px 110px}.historical-control{display:none}.historical-control.visible{display:block;grid-column:4/6;grid-row:2}.entry-help{margin-top:7px;color:var(--timestamp);font-size:7px}.entry-error{color:var(--danger)}
 .result-box{display:flex;flex-direction:column;justify-content:center;padding:10px 12px;border-right:1px solid var(--line)}.result-label{color:var(--muted);font-size:8px;line-height:1.45}.result-value{margin-top:3px;color:var(--accent);font:800 21px ui-monospace,monospace}.result-value.negative{color:var(--ask)}.result-unit{font-size:7px;margin-left:4px;color:var(--muted)}
 .recent-strip{grid-column:1/-1;display:flex;height:29px;align-items:center;gap:18px;padding:0 11px;border-top:1px solid var(--line);overflow:hidden;white-space:nowrap;color:var(--muted);font-size:7px}.recent-title{color:var(--timestamp)}.recent-item strong{color:var(--text);font-weight:650}.recent-item span{margin-left:6px}
 .history-shell{min-height:470px;padding:10px}.history-toolbar{display:grid;grid-template-columns:140px auto minmax(300px,1fr);gap:8px;align-items:end;padding:0 0 10px}.field label,.source-label{display:block;margin-bottom:5px;color:var(--muted);font-size:8px}.field .control{width:100%}.range-buttons{display:flex}.range-button{height:32px;padding:0 11px;border:1px solid var(--line);border-right:0;background:#081119;color:var(--muted);font-size:8px}.range-button:last-child{border-right:1px solid var(--line)}.range-button.active{border-color:var(--accent);background:rgba(87,217,181,.08);color:var(--accent)}
@@ -87,6 +87,22 @@ button{cursor:pointer}
     <div class="result-box"><div class="result-label" id="bankResultLabel">对比中国银行牌价，优惠</div><div class="result-value" id="bankResult">--<span class="result-unit">bp</span></div></div>
     <div class="recent-strip" id="recentEntries"><span class="recent-title">最近录入</span><span>暂无记录</span></div>
   </section>
+
+  <section class="entry-bar" id="targetBar">
+    <form class="entry-form" id="targetForm">
+      <div class="entry-title"><strong>拟定赚取点数</strong></div>
+      <div class="entry-fields target-fields">
+        <select class="control" id="targetPair" aria-label="货币对"></select>
+        <select class="control" id="targetBank" aria-label="银行"></select>
+        <select class="control" id="targetDirection" aria-label="方向"><option value="买入价">银行买入（客户卖出）</option><option value="卖出价">银行卖出（客户买入）</option></select>
+        <input class="control price-input" id="targetBp" type="number" step="any" placeholder="赚取点数，如 100" required>
+        <button class="submit" type="submit">计算应报价</button>
+      </div>
+      <div class="entry-help" id="targetHelp">以 CFETS 对应买卖价为基准，加减赚取点数，得出银行应报价。</div>
+    </form>
+    <div class="result-box"><div class="result-label">银行应报价</div><div class="result-value" id="targetPrice">--</div></div>
+    <div class="result-box"><div class="result-label" id="targetBankLabel">对比银行牌价，优惠</div><div class="result-value" id="targetBpResult">--<span class="result-unit">bp</span></div></div>
+  </section>
 </main>
 
 <script>
@@ -132,6 +148,8 @@ function populateControls(){
   byId("entryPair").innerHTML = pairOptions;
   byId("historyPair").innerHTML = pairOptions;
   byId("entryBank").innerHTML = BANKS.map(bank => `<option>${bank}</option>`).join("");
+  byId("targetPair").innerHTML = pairOptions;
+  byId("targetBank").innerHTML = byId("entryBank").innerHTML;
   const defaultBanks = new Set(["中国银行"]);
   byId("historySources").innerHTML = `<label class="source-option locked"><input type="checkbox" checked disabled>CFETS</label>` + BANKS.map(bank => `<label class="source-option"><input type="checkbox" value="${bank}" ${defaultBanks.has(bank) ? "checked" : ""}>${bank}</label>`).join("");
 }
@@ -229,6 +247,20 @@ async function submitEntry(event){
   }catch(error){byId("entryHelp").textContent = "提交失败，请检查本地服务。";byId("entryHelp").classList.add("entry-error")}
   finally{byId("entrySubmit").disabled = false}
 }
+async function submitTarget(event){
+  event.preventDefault();
+  const bank = byId("targetBank").value;
+  const params = new URLSearchParams({pair:byId("targetPair").value,bank,direction:byId("targetDirection").value,target_bp:byId("targetBp").value});
+  try{
+    const response = await fetch(`/api/target_quote?${params}`);
+    const data = await response.json();
+    if(!data.ok){byId("targetHelp").textContent = data.error || "计算失败";byId("targetHelp").classList.add("entry-error");return}
+    byId("targetHelp").classList.remove("entry-error");
+    byId("targetPrice").textContent = data.target_price.toFixed(4);
+    byId("targetBankLabel").textContent = `对比${bank}牌价，优惠`;
+    setResult(byId("targetBpResult"),data.bp_vs_bank_price);
+  }catch(error){byId("targetHelp").textContent = "计算失败，请检查本地服务。";byId("targetHelp").classList.add("entry-error")}
+}
 async function loadEntries(){
   try{
     const data = await fetch("/api/entries?limit=6",{cache:"no-store"}).then(response => response.json());
@@ -313,7 +345,7 @@ function switchView(name){
 }
 function bindEvents(){
   byId("viewLive").addEventListener("click",() => switchView("live"));byId("viewHistory").addEventListener("click",() => switchView("history"));
-  byId("entryPair").addEventListener("change",updateEntryLabels);byId("entryBank").addEventListener("change",updateEntryLabels);byId("entryMode").addEventListener("change",event => setEntryTimeMode(event.target.value));byId("entryForm").addEventListener("submit",submitEntry);
+  byId("entryPair").addEventListener("change",updateEntryLabels);byId("entryBank").addEventListener("change",updateEntryLabels);byId("entryMode").addEventListener("change",event => setEntryTimeMode(event.target.value));byId("entryForm").addEventListener("submit",submitEntry);byId("targetForm").addEventListener("submit",submitTarget);
   byId("historyPair").addEventListener("change",loadHistory);
   byId("historySources").addEventListener("change",event => {const checked = selectedHistoryBanks();if(checked.length > 2){event.target.checked=false;return}loadHistory()});
   document.querySelectorAll(".range-button").forEach(button => button.addEventListener("click",() => {activeHistoryHours=button.dataset.hours;document.querySelectorAll(".range-button").forEach(item => item.classList.toggle("active",item===button));byId("customRange").classList.toggle("visible",activeHistoryHours==="custom");if(activeHistoryHours!=="custom") loadHistory()}));

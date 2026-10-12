@@ -337,6 +337,42 @@ async def save_entry(
     }
 
 
+@app.get("/api/target_quote")
+async def target_quote(
+    pair: str = Query(...),
+    bank: str = Query(...),
+    direction: str = Query(...),
+    target_bp: float = Query(...),
+):
+    """按拟定赚取点数反算银行应报价，并对比该银行当前牌价的优惠 bp（只计算，不保存）"""
+    market = cfets_cache.get(pair, {})
+    market_bid = market.get("bid")
+    market_ask = market.get("ask")
+    if not market_bid or not market_ask:
+        return {"ok": False, "error": "暂无 CFETS 买卖价，请等待报价刷新"}
+    bq = bank_cache.get(bank, {}).get(pair, {})
+    bank_bid = bq.get("bid") if bq else None
+    bank_ask = bq.get("ask") if bq else None
+    if bank_bid is None or bank_ask is None:
+        return {"ok": False, "error": f"{bank} {pair} 暂无真实银行报价，请等待下一次更新"}
+
+    offset = target_bp / 10000
+    if direction == "买入价":
+        target_price = round(market_bid - offset, 4)
+        bp_vs_bank_price = round((target_price - bank_bid) * 10000, 1)
+    else:
+        target_price = round(market_ask + offset, 4)
+        bp_vs_bank_price = round((bank_ask - target_price) * 10000, 1)
+
+    return {
+        "ok": True,
+        "target_price": target_price,
+        "bank_bid": bank_bid,
+        "bank_ask": bank_ask,
+        "bp_vs_bank_price": bp_vs_bank_price,
+    }
+
+
 @app.get("/api/chart_dates")
 async def get_chart_dates():
     """返回有数据可查的日期列表"""
